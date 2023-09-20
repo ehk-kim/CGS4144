@@ -1,20 +1,24 @@
+Skip installations unless R complains about packages not present
 ```{r}
 install.packages("BiocManager")
-BiocManager::install("org.Mm.eg.db")
-```
-
-```{r}
-library("org.Mm.eg.db")
-```
-
-```{r}
-# Install the Mouse package
 if (!("org.Mm.eg.db" %in% installed.packages())) {
   # Install this package if it isn't installed yet
   BiocManager::install("org.Mm.eg.db", update = FALSE)
 }
+```
+
+Skip installations unless R complains about packages not present
+```{r}
 install.packages("readr")
+```
+
+Skip installations unless R complains about packages not present
+```{r}
 install.packages("dplyr")
+```
+
+Skip installations unless R complains about packages not present
+```{r}
 install.packages("tidyr")
 ```
 
