@@ -1,0 +1,9 @@
+```{r}
+install.packages("BiocManager")
+BiocManager::install("org.Mm.eg.db")
+```
+
+```{r}
+library("org.Mm.eg.db")
+```
+
