@@ -7,3 +7,103 @@ BiocManager::install("org.Mm.eg.db")
 library("org.Mm.eg.db")
 ```
 
+```{r}
+# Install the Mouse package
+if (!("org.Mm.eg.db" %in% installed.packages())) {
+  # Install this package if it isn't installed yet
+  BiocManager::install("org.Mm.eg.db", update = FALSE)
+}
+install.packages("readr")
+install.packages("dplyr")
+install.packages("tidyr")
+```
+
+```{r}
+# Load the library
+library("org.Mm.eg.db")
+
+# to use %>%, forwards value to next expression
+library(magrittr)
+
+# to read tsv file
+library(readr)
+library(dplyr)
+library(tidyr)
+```
+
+```{r}
+# Read in metadata
+metadata <- readr::read_tsv("SRP119064/metadata_SRP119064.tsv")
+
+# Read in data
+expression_df <- readr::read_tsv("SRP119064/SRP119064.tsv")%>%
+  # Convert Gene ID column to rowname
+  tibble::column_to_rownames("Gene")
+```
+
+```{r}
+# Align data and metadata
+# Select from expression_df the rows with metadata's refinebio_accession_code
+expression_df <- expression_df %>%
+  dplyr::select(metadata$refinebio_accession_code)
+
+# Check that they are in the same order
+all.equal(colnames(expression_df), metadata$refinebio_accession_code)
+```
+
+```{r}
+# Bring back the "Gene" column for mapping
+expression_df <- expression_df %>%
+  tibble::rownames_to_column("Gene")
+
+# Map Ensembl IDs to their associated Hugo gene names
+mapped_list <- mapIds(
+  org.Mm.eg.db,
+  keys = expression_df$Gene,
+  keytype = "ENSEMBL",
+  column = "SYMBOL",
+  multiVals = "list"
+)
+```
+
+```{r}
+# Turn list into a data frame
+mapped_df <- mapped_list %>%
+  tibble::enframe(name = "Ensembl", value = "Symbol") %>%
+  # enframe() converts lists to data frames, this one being 2 columns
+  # We use unnest() to make each element of the list its own row
+  tidyr::unnest(cols = Symbol)
+```
+
+```{r}
+collapsed_mapped_df <- mapped_df %>%
+  # Group by Ensembl IDs
+  dplyr::group_by(Ensembl) %>%
+  # Collapse the Entrez IDs `mapped_df` into one column named `all_symbols`
+  dplyr::summarize(all_symbols = paste(Symbol, collapse = ";"))
+```
+
+```{r}
+final_mapped_df <- data.frame(
+  "first_mapped_symbol" = mapIds(
+    org.Mm.eg.db,
+    keys = expression_df$Gene,
+    keytype = "ENSEMBL",
+    column = "SYMBOL",
+    multiVals = "first"
+  )
+) %>%
+  # Make an `Ensembl` column to store the rownames
+  tibble::rownames_to_column("Ensembl") %>%
+  # Add the multiple mappings data
+  dplyr::inner_join(collapsed_mapped_df, by = "Ensembl") %>%
+  # Add the rest of the expression data
+  dplyr::inner_join(expression_df, by = c("Ensembl" = "Gene"))
+```
+
+```{r}
+# Write data frame to output file
+readr::write_tsv(final_mapped_df, file.path(
+  "results/SRP040561_HugoGeneNames.tsv"
+))
+```
