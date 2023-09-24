@@ -1,27 +1,3 @@
-Skip installations unless R complains about packages not present
-```{r}
-install.packages("BiocManager")
-if (!("org.Mm.eg.db" %in% installed.packages())) {
-  # Install this package if it isn't installed yet
-  BiocManager::install("org.Mm.eg.db", update = FALSE)
-}
-```
-
-Skip installations unless R complains about packages not present
-```{r}
-install.packages("readr")
-```
-
-Skip installations unless R complains about packages not present
-```{r}
-install.packages("dplyr")
-```
-
-Skip installations unless R complains about packages not present
-```{r}
-install.packages("tidyr")
-```
-
 ```{r}
 # Load the library
 library("org.Mm.eg.db")
@@ -33,6 +9,17 @@ library(magrittr)
 library(readr)
 library(dplyr)
 library(tidyr)
+library(biomaRt)
+library(ggfortify)
+library(DESeq2)
+library(ggplot2)
+```
+
+```{r}
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("DESeq2", force = TRUE)
 ```
 
 ```{r}
@@ -44,7 +31,6 @@ expression_df <- readr::read_tsv("SRP119064/SRP119064.tsv")%>%
   # Convert Gene ID column to rowname
   tibble::column_to_rownames("Gene")
 ```
-
 ```{r}
 # Align data and metadata
 # Select from expression_df the rows with metadata's refinebio_accession_code
@@ -53,61 +39,90 @@ expression_df <- expression_df %>%
 
 # Check that they are in the same order
 all.equal(colnames(expression_df), metadata$refinebio_accession_code)
-```
 
-```{r}
-# Bring back the "Gene" column for mapping
 expression_df <- expression_df %>%
   tibble::rownames_to_column("Gene")
 
-# Map Ensembl IDs to their associated Hugo gene names
-mapped_list <- mapIds(
-  org.Mm.eg.db,
-  keys = expression_df$Gene,
-  keytype = "ENSEMBL",
-  column = "SYMBOL",
-  multiVals = "list"
-)
+mart <- useMart('ensembl', dataset = 'mmusculus_gene_ensembl')
 ```
 
 ```{r}
-# Turn list into a data frame
-mapped_df <- mapped_list %>%
-  tibble::enframe(name = "Ensembl", value = "Symbol") %>%
-  # enframe() converts lists to data frames, this one being 2 columns
-  # We use unnest() to make each element of the list its own row
-  tidyr::unnest(cols = Symbol)
+mapping_ensembl_to_symbol <- getBM(
+  attributes = c(
+    'ensembl_gene_id', 'mgi_symbol'),
+  values = expression_df$Gene,
+  mart = mart)
 ```
 
 ```{r}
-collapsed_mapped_df <- mapped_df %>%
+collapsed_mapping_df <- mapping_ensembl_to_symbol %>%
   # Group by Ensembl IDs
-  dplyr::group_by(Ensembl) %>%
-  # Collapse the Entrez IDs `mapped_df` into one column named `all_symbols`
-  dplyr::summarize(all_symbols = paste(Symbol, collapse = ";"))
+  dplyr::group_by(ensembl_gene_id) %>%
+  # Collapse the mgi symbols `mapping_df` into one column named `all_symbols`
+  dplyr::summarize(all_symbols = paste(mgi_symbol, collapse = ";"))
 ```
 
 ```{r}
-final_mapped_df <- data.frame(
-  "first_mapped_symbol" = mapIds(
-    org.Mm.eg.db,
-    keys = expression_df$Gene,
-    keytype = "ENSEMBL",
-    column = "SYMBOL",
-    multiVals = "first"
-  )
-) %>%
-  # Make an `Ensembl` column to store the rownames
-  tibble::rownames_to_column("Ensembl") %>%
-  # Add the multiple mappings data
-  dplyr::inner_join(collapsed_mapped_df, by = "Ensembl") %>%
+final_mapping_df <- collapsed_mapping_df %>%
   # Add the rest of the expression data
-  dplyr::inner_join(expression_df, by = c("Ensembl" = "Gene"))
+  dplyr::right_join(expression_df, by = c("ensembl_gene_id" = "Gene"))
 ```
 
 ```{r}
 # Write data frame to output file
-readr::write_tsv(final_mapped_df, file.path(
-  "results/SRP040561_HugoGeneNames.tsv"
+readr::write_tsv(final_mapping_df, file.path(
+  "results/SRP040561_GeneNames.tsv"
 ))
+```
+
+```{r}
+logged_mapping <- final_mapping_df %>% 
+  tibble::column_to_rownames("ensembl_gene_id") %>%
+  dplyr::select_if(is.numeric) %>%
+  log()
+```
+
+```{r}
+per_gene_median_expressions <- logged_mapping %>%
+  rowwise() %>%
+  mutate(per_gene_medians = median(c_across(where(is.numeric)), na.rm=TRUE)) %>%
+  select(per_gene_medians)
+```
+
+```{r}
+ggplot(per_gene_median_expressions, aes(x=per_gene_medians)) + 
+  geom_density()
+```
+
+```{r}
+final_mapping_df <- final_mapping_df %>%
+  tibble::column_to_rownames("ensembl_gene_id") %>%
+  dplyr::select(metadata$refinebio_accession_code)
+
+# Check that they are in the same order
+all.equal(colnames(final_mapping_df), metadata$refinebio_accession_code)
+```
+
+```{r}
+pca_matrix <- final_mapping_df %>% 
+  dplyr::select_if(is.numeric) %>%
+  # change to a matrix
+  as.matrix() %>% 
+  # transpose so that rows are samples and columns are variables
+  t()
+
+# Perform the PCA
+pca <- prcomp(pca_matrix)
+```
+
+```{r}
+accession_to_specimen_part <- metadata %>%
+  select(refinebio_accession_code, refinebio_specimen_part) %>%
+  tibble::column_to_rownames("refinebio_accession_code")
+
+matrix_with_groupings <- logged_mapping %>% 
+  as.matrix() %>% 
+  t() %>%
+  merge(accession_to_specimen_part, by = 'row.names', all = TRUE)
+autoplot(pca, data = matrix_with_groupings, colour = "refinebio_specimen_part")
 ```
