@@ -16,13 +16,6 @@ library(ggplot2)
 ```
 
 ```{r}
-if (!require("BiocManager", quietly = TRUE))
-    install.packages("BiocManager")
-
-BiocManager::install("DESeq2", force = TRUE)
-```
-
-```{r}
 # Read in metadata
 metadata <- readr::read_tsv("SRP119064/metadata_SRP119064.tsv")
 
@@ -104,25 +97,39 @@ all.equal(colnames(final_mapping_df), metadata$refinebio_accession_code)
 ```
 
 ```{r}
-pca_matrix <- final_mapping_df %>% 
-  dplyr::select_if(is.numeric) %>%
-  # change to a matrix
-  as.matrix() %>% 
-  # transpose so that rows are samples and columns are variables
-  t()
-
-# Perform the PCA
-pca <- prcomp(pca_matrix)
+gene_matrix <- round(final_mapping_df)
 ```
 
 ```{r}
-accession_to_specimen_part <- metadata %>%
-  select(refinebio_accession_code, refinebio_specimen_part) %>%
-  tibble::column_to_rownames("refinebio_accession_code")
-
-matrix_with_groupings <- logged_mapping %>% 
-  as.matrix() %>% 
-  t() %>%
-  merge(accession_to_specimen_part, by = 'row.names', all = TRUE)
-autoplot(pca, data = matrix_with_groupings, colour = "refinebio_specimen_part")
+metadata <- metadata %>%
+  # Get trem2knockout status
+  dplyr::mutate(knockout_status = dplyr::case_when(
+    stringr::str_detect(refinebio_subject, "wt") ~ "wt",
+    stringr::str_detect(refinebio_subject, "trem2ko") ~ "trem2ko"
+  )) %>%
+  # Get time passed (4 months or 8 months)
+  dplyr::mutate(time_passed = dplyr::case_when(
+    stringr::str_detect(refinebio_subject, "4m") ~ "4m",
+    stringr::str_detect(refinebio_subject, "8m") ~ "8m"
+  ))
+metadata <- metadata %>%
+  dplyr::mutate(
+    # Here we define the values our factor variable can have and their order.
+    knockout_status = factor(knockout_status, levels = c("wt", "trem2ko"))
+  ) %>%
+  dplyr::mutate(
+    refinebio_specimen_part = factor(refinebio_specimen_part, levels = c("cortex", "hippocampus"))
+  ) %>%
+  dplyr::mutate(
+    time_passed = factor(time_passed, levels = c("4m", "8m"))
+  )
+```
+```{r}
+deseq <- DESeqDataSetFromMatrix(gene_matrix, metadata, ~refinebio_specimen_part)
+```
+```{r}
+deseq <- DESeq(deseq)
+```
+```{r}
+plotPCA(DESeqTransform(deseq), intgroup = "refinebio_specimen_part")
 ```
