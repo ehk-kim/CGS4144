@@ -13,6 +13,7 @@ library(DESeq2)
 library(ggplot2)
 library(tibble)
 library(EnhancedVolcano)
+library(gprofiler2)
 ```
 
 ## Read in data
@@ -184,3 +185,21 @@ png(filename = "results/SRP040561_volcano_plot.png")
 volcano_plot
 dev.off()
 ```
+
+
+# List of differentially expressed genes
+```{r}
+filtered_deseq_df <- deseq_df %>% 
+  filter(abs(log2FoldChange) > 1 & padj < 0.05)
+```
+
+## Enrichment Analysis 
+
+## gProfiler2
+```{r}
+gostres <- gost(query = filtered_deseq_df$Gene, organism = "mmusculus", ordered_query = FALSE, multi_query = FALSE, significant = TRUE, exclude_iea = FALSE, measure_underrepresentation = FALSE, user_threshold = 0.05, correction_method = "bonferroni", domain_scope = "annotated", custom_bg = NULL, numeric_ns = "", sources = "GO", as_short_link = FALSE, highlight = TRUE)
+
+gostplot(gostres, capped = TRUE, interactive = TRUE)
+```
+
+
