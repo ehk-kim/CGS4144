@@ -1,4 +1,4 @@
-# Assignment 1
+# Assignment 2
 
 ## Load all libraries
 ```{r, warning=FALSE}
@@ -13,6 +13,7 @@ library(DESeq2)
 library(ggplot2)
 library(tibble)
 library(EnhancedVolcano)
+library(clusterProfiler)
 library(gprofiler2)
 ```
 
@@ -159,15 +160,24 @@ deseq_results <- lfcShrink(
   res = deseq_results
 )
 
-# Table of DEG
+# Table of DESeq results
 deseq_df <- deseq_results %>%
   as.data.frame() %>%
   rownames_to_column("Gene") %>%
   dplyr::mutate(threshold = padj < 0.05) %>%
   dplyr::arrange(dplyr::desc(log2FoldChange))
 
+saveRDS(deseq_df, file = "deseq_df.RDS")
+
+# Differentially expressed genes
+deg_df <- deseq_df %>%
+  filter(abs(log2FoldChange) > 1 & padj < 0.05)
+
+saveRDS(deg_df, file = "deg_df.RDS")
+
 # Save and summarize findings
-write_tsv(deseq_df, file.path("results/SRP040561_DEG_results.tsv"))
+write_tsv(deseq_df, file.path("results/SRP040561_DESeq2_results.tsv"))
+write_tsv(deg_df, file.path("results/SRP040561_DEG.tsv"))
 
 ```
 
@@ -186,14 +196,39 @@ volcano_plot
 dev.off()
 ```
 
+# Enrichment Analysis 
 
-# List of differentially expressed genes
-```{r}
-filtered_deseq_df <- deseq_df %>% 
-  filter(abs(log2FoldChange) > 1 & padj < 0.05)
+## topGO
+
+## clusterProfiler
+
+Run clusterProfiler for gene set enrichment analysis using Gene Ontology (GO). 
+GO terms can be split into three ontologies: Biological processes (BP), molecular functions (MF), and cellular components (CC).
+
+```{r warning=FALSE}
+# Prepare input for clusterProfiler
+gene_list <- deg_df$log2FoldChange
+names(gene_list) <- deg_df$Gene
+gene_list <- na.omit(gene_list)
+gene_list <- sort(gene_list, decreasing = TRUE)
+
+# BP, MF, and CC ontologies are all included
+enrichment <- enrichGO(
+  gene=deg_df$Gene,
+  OrgDb = "org.Mm.eg.db", 
+  keyType = "ENSEMBL",
+  ont ="ALL",
+  pAdjustMethod = "BH",
+  pvalueCutoff = 0.05,
+)
+
+# Create data frame of gene set enrichment results
+clusterProfiler_df <- as.data.frame(enrichment@result)
+
+# Save and summarize findings
+saveRDS(clusterProfiler_df, file = "clusterProfiler_results.RDS")
+write_tsv(clusterProfiler_df, file.path("results/SRP040561_clusterProfiler_results.tsv"))
 ```
-
-## Enrichment Analysis 
 
 ## gProfiler2
 ```{r}
