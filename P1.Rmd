@@ -126,6 +126,42 @@ deseq <- DESeq(deseq)
 
 plotPCA(DESeqTransform(deseq), intgroup = "refinebio_specimen_part")
 ```
+## UMAP Plot
+```{r}
+library("umap")
+library(readr)
+library(dplyr)
+
+
+# 1. Subset the Data for Hippocampus and Cortex
+# Assuming 'metadata' contains the metadata information
+gene <- DESeqDataSetFromMatrix(
+  countData = gene_matrix, # the counts values for all samples in our dataset
+  colData = metadata, # annotation data for the samples in the counts data frame
+  design = ~refinebio_specimen_part # Here we are not specifying a model
+  # Replace with an appropriate design variable for your analysis
+)
+gene_norm <- vst(gene)
+normalized_counts <- assay(gene_norm) %>%
+  t() # We need to transpose this data so each row is a sample
+umap_results <- umap::umap(normalized_counts)
+umap_plot_df <- data.frame(umap_results$layout) %>%
+  # Turn sample IDs stored as row names into a column
+  tibble::rownames_to_column("refinebio_accession_code") %>%
+  # Add the metadata into this data frame; match by sample IDs
+  dplyr::inner_join(metadata, by = "refinebio_accession_code")
+umap_plot_df
+ggplot(
+  umap_plot_df,
+  aes(
+    x = X1,
+    y = X2,
+    color = refinebio_specimen_part
+  )
+) +
+  geom_point() # Plot individual points to make a scatterplot
+```
+
 
 ## Complete differential expression analysis
 ```{r}
