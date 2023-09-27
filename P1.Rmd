@@ -8,11 +8,13 @@ library(readr)
 library(dplyr)
 library(tidyr)
 library(biomaRt)
+library(biomartr)
 library(ggfortify)
 library(DESeq2)
 library(ggplot2)
 library(tibble)
 library(EnhancedVolcano)
+library(topGO)
 library(clusterProfiler)
 library(gprofiler2)
 ```
@@ -45,16 +47,16 @@ mart <- useMart('ensembl', dataset = 'mmusculus_gene_ensembl')
 ## Get gene names
 ```{r}
 mapping_ensembl_to_symbol <- getBM(
-  attributes = c(
-    'ensembl_gene_id', 'mgi_symbol'),
+  attributes = c('ensembl_gene_id', 'mgi_symbol', 'go_id'),
   values = expression_df$Gene,
   mart = mart)
 
 collapsed_mapping_df <- mapping_ensembl_to_symbol %>%
   # Group by Ensembl IDs
-  dplyr::group_by(ensembl_gene_id) %>%
+  group_by(ensembl_gene_id) %>%
   # Collapse the mgi symbols `mapping_df` into one column named `all_symbols`
-  dplyr::summarize(all_symbols = paste(mgi_symbol, collapse = ";"))
+  summarize(all_symbols = paste(mgi_symbol, collapse = ";"),
+            go_ids = paste(go_id, collapse = ";"))
 
 final_mapping_df <- collapsed_mapping_df %>%
   # Add the rest of the expression data
@@ -200,10 +202,69 @@ dev.off()
 
 ## topGO
 
+Run topGO for gene set enrichment analysis using Gene Ontology (GO).
+GO terms can be split into three ontologies: Biological processes (BP), molecular functions (MF), and cellular components (CC).
+
+```{r warning=FALSE}
+# Create annotation file from collapsed_mapping_df
+go_annots <- collapsed_mapping_df %>%
+    select(ensembl_gene_id, go_ids)
+
+write.table(go_annots,
+            file = "annotations.txt",
+            sep = "\t",
+            row.names = FALSE,
+            col.names = FALSE,
+            quote = FALSE)
+
+# Initialize variables for topGO
+geneIDtoGO <- readMappings(file = "annotations.txt")
+geneUniverse <- names(geneIDtoGO)
+genesOfInterest <- as.character(deg_df$Gene)
+geneList <- factor(as.integer(geneUniverse %in% genesOfInterest))
+names(geneList) <- geneUniverse
+
+topGORes <- function(ont) {
+  # Create topGO object
+  GOdata <- new("topGOdata",
+              description = "topGO",
+              ontology = ont,
+              allGenes = geneList,
+              geneSel = deg_df$Gene,
+              annot = annFUN.gene2GO,
+              gene2GO = geneIDtoGO)
+  
+  # Run a weighted Fisher's exact test, taking GO hierarchy into account
+  resultFisher <- runTest(GOdata,
+                        algorithm = 'weight01',
+                        statistic = 'fisher')
+  allGO <- usedGO(GOdata)
+  topGO_res_init <- GenTable(GOdata,
+                    weightFisher = resultFisher,
+                    orderBy = 'weightFisher',
+                    topNodes = length(allGO))
+
+  # Adjust p-values using Benjamini-Hochberg correction
+  padj <- round(p.adjust(topGO_res_init$weightFisher, method = "BH"), digits = 4)
+  topGO_res <- cbind(topGO_res_init, padj)
+  topGO_res <- topGO_res[order(topGO_res$padj),]
+  
+  return(topGO_res)
+} 
+
+topGO_BP <- topGORes("BP")
+topGO_MF <- topGORes("MF")
+topGO_CC <- topGORes("CC")
+
+topGO_results <- rbind(topGO_BP, topGO_MF, topGO_CC)
+
+# Save and summarize findings
+saveRDS(topGO_results, file = "topGO_results.RDS")
+write_tsv(topGO_results, file.path("results/SRP040561_topGO_results.tsv"))
+```
 ## clusterProfiler
 
 Run clusterProfiler for gene set enrichment analysis using Gene Ontology (GO). 
-GO terms can be split into three ontologies: Biological processes (BP), molecular functions (MF), and cellular components (CC).
 
 ```{r warning=FALSE}
 # Prepare input for clusterProfiler
