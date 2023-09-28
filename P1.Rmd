@@ -14,6 +14,8 @@ library(ggplot2)
 library(tibble)
 library(EnhancedVolcano)
 library(gprofiler2)
+library(devtools)
+install_github("jokergoo/ComplexHeatmap") #I think this is required according to documentation
 ```
 
 ## Read in data
@@ -186,6 +188,36 @@ volcano_plot
 dev.off()
 ```
 
+
+# Heatmap
+# List of differentially expressed genes
+filtered_deseq_df <- deseq_df %>% 
+  filter(abs(log2FoldChange) > 1 & padj < 0.05)
+
+# Extract expression data for differentially expressed genes
+heatmap_data <- final_mapping_df %>%
+  column_to_rownames("ensembl_gene_id") %>%
+  dplyr::select(filtered_deseq_df$Gene)
+heatmap_data <- t(heatmap_data)
+
+# Create the heatmap
+heatmap(
+  heatmap_data,
+  name = "Expression",
+  col = colorRamp2(c(-2, 0, 2), c("blue", "white", "red")),
+  cluster_rows = TRUE,
+  cluster_cols = TRUE,
+  show_row_names = TRUE,
+  show_column_names = TRUE,
+  row_names_gp = gpar(fontsize = 8),
+  column_names_gp = gpar(fontsize = 8),
+  column_title = "Samples",
+  row_title = "Genes",
+  row_title_side = "left",
+  column_title_side = "top",
+  width = unit(8, "in"),
+  height = unit(6, "in")
+)
 
 # List of differentially expressed genes
 ```{r}
