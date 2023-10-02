@@ -14,8 +14,7 @@ library(ggplot2)
 library(tibble)
 library(EnhancedVolcano)
 library(gprofiler2)
-library(devtools)
-install_github("jokergoo/ComplexHeatmap") #I think this is required according to documentation
+library(ComplexHeatmap)
 ```
 
 ## Read in data
@@ -189,40 +188,29 @@ dev.off()
 ```
 
 
+```{r}
 # Heatmap
 # List of differentially expressed genes
 filtered_deseq_df <- deseq_df %>% 
   filter(abs(log2FoldChange) > 1 & padj < 0.05)
 
-# Extract expression data for differentially expressed genes
-heatmap_data <- final_mapping_df %>%
-  column_to_rownames("ensembl_gene_id") %>%
-  dplyr::select(filtered_deseq_df$Gene)
-heatmap_data <- t(heatmap_data)
+heatmap_filtered_deseq_df <- filtered_deseq_df[(filtered_deseq_df$baseMean > 10) & (abs(filtered_deseq_df$log2FoldChange) > 1.5),]
 
-# Create the heatmap
-heatmap(
-  heatmap_data,
-  name = "Expression",
-  col = colorRamp2(c(-2, 0, 2), c("blue", "white", "red")),
-  cluster_rows = TRUE,
-  cluster_cols = TRUE,
-  show_row_names = TRUE,
-  show_column_names = TRUE,
-  row_names_gp = gpar(fontsize = 8),
-  column_names_gp = gpar(fontsize = 8),
-  column_title = "Samples",
-  row_title = "Genes",
-  row_title_side = "left",
-  column_title_side = "top",
-  width = unit(8, "in"),
-  height = unit(6, "in")
-)
+heatmap_filtered_deseq_df <- heatmap_filtered_deseq_df %>%
+  inner_join(collapsed_mapping_df, by = c("Gene" = "ensembl_gene_id"))
+mat <- counts(deseq, normalized = T)[heatmap_filtered_deseq_df$Gene,]
 
-# List of differentially expressed genes
-```{r}
-filtered_deseq_df <- deseq_df %>% 
-  filter(abs(log2FoldChange) > 1 & padj < 0.05)
+mat.z <- t(apply(mat, 1, scale))
+colnames(mat.z) <- colnames(mat)
+
+heatmap_filtered_deseq_df <- heatmap_filtered_deseq_df %>%
+  tibble::column_to_rownames("Gene")
+
+h <- Heatmap(mat.z, cluster_rows = TRUE, cluster_columns = TRUE, column_labels = colnames(mat.z), name = "Z-score", row_labels = heatmap_filtered_deseq_df[rownames(mat.z),]$all_symbols)
+
+png(filename = "results/SRP040561_heatmap.png", res = 250, width = 1000, height = 2000)
+print(h)
+dev.off()
 ```
 
 ## Enrichment Analysis 
@@ -231,7 +219,11 @@ filtered_deseq_df <- deseq_df %>%
 ```{r}
 gostres <- gost(query = filtered_deseq_df$Gene, organism = "mmusculus", ordered_query = FALSE, multi_query = FALSE, significant = TRUE, exclude_iea = FALSE, measure_underrepresentation = FALSE, user_threshold = 0.05, correction_method = "bonferroni", domain_scope = "annotated", custom_bg = NULL, numeric_ns = "", sources = "GO", as_short_link = FALSE, highlight = TRUE)
 
-gostplot(gostres, capped = TRUE, interactive = TRUE)
+gprof <- gostplot(gostres, capped = TRUE, interactive = FALSE)
+
+png(filename = "results/SRP040561_gProfiler2.png")
+print(gprof)
+dev.off()
 ```
 
 
