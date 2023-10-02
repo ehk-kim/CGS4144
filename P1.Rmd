@@ -1,4 +1,4 @@
-# Assignment 1
+# Assignment 2
 
 ## Load all libraries
 ```{r, warning=FALSE}
@@ -8,11 +8,14 @@ library(readr)
 library(dplyr)
 library(tidyr)
 library(biomaRt)
+library(biomartr)
 library(ggfortify)
 library(DESeq2)
 library(ggplot2)
 library(tibble)
 library(EnhancedVolcano)
+library(topGO)
+library(clusterProfiler)
 library(gprofiler2)
 library(ComplexHeatmap)
 ```
@@ -45,16 +48,16 @@ mart <- useMart('ensembl', dataset = 'mmusculus_gene_ensembl')
 ## Get gene names
 ```{r}
 mapping_ensembl_to_symbol <- getBM(
-  attributes = c(
-    'ensembl_gene_id', 'mgi_symbol'),
+  attributes = c('ensembl_gene_id', 'mgi_symbol', 'go_id'),
   values = expression_df$Gene,
   mart = mart)
 
 collapsed_mapping_df <- mapping_ensembl_to_symbol %>%
   # Group by Ensembl IDs
-  dplyr::group_by(ensembl_gene_id) %>%
+  group_by(ensembl_gene_id) %>%
   # Collapse the mgi symbols `mapping_df` into one column named `all_symbols`
-  dplyr::summarize(all_symbols = paste(mgi_symbol, collapse = ";"))
+  summarize(all_symbols = paste(mgi_symbol, collapse = ";"),
+            go_ids = paste(go_id, collapse = ";"))
 
 final_mapping_df <- collapsed_mapping_df %>%
   # Add the rest of the expression data
@@ -124,6 +127,42 @@ deseq <- DESeq(deseq)
 
 plotPCA(DESeqTransform(deseq), intgroup = "refinebio_specimen_part")
 ```
+## UMAP Plot
+```{r}
+library("umap")
+library(readr)
+library(dplyr)
+
+
+# 1. Subset the Data for Hippocampus and Cortex
+# Assuming 'metadata' contains the metadata information
+gene <- DESeqDataSetFromMatrix(
+  countData = gene_matrix, # the counts values for all samples in our dataset
+  colData = metadata, # annotation data for the samples in the counts data frame
+  design = ~refinebio_specimen_part # Here we are not specifying a model
+  # Replace with an appropriate design variable for your analysis
+)
+gene_norm <- vst(gene)
+normalized_counts <- assay(gene_norm) %>%
+  t() # We need to transpose this data so each row is a sample
+umap_results <- umap::umap(normalized_counts)
+umap_plot_df <- data.frame(umap_results$layout) %>%
+  # Turn sample IDs stored as row names into a column
+  tibble::rownames_to_column("refinebio_accession_code") %>%
+  # Add the metadata into this data frame; match by sample IDs
+  dplyr::inner_join(metadata, by = "refinebio_accession_code")
+umap_plot_df
+ggplot(
+  umap_plot_df,
+  aes(
+    x = X1,
+    y = X2,
+    color = refinebio_specimen_part
+  )
+) +
+  geom_point() # Plot individual points to make a scatterplot
+```
+
 
 ## Complete differential expression analysis
 ```{r}
@@ -160,15 +199,24 @@ deseq_results <- lfcShrink(
   res = deseq_results
 )
 
-# Table of DEG
+# Table of DESeq results
 deseq_df <- deseq_results %>%
   as.data.frame() %>%
   rownames_to_column("Gene") %>%
   dplyr::mutate(threshold = padj < 0.05) %>%
   dplyr::arrange(dplyr::desc(log2FoldChange))
 
+saveRDS(deseq_df, file = "deseq_df.RDS")
+
+# Differentially expressed genes
+deg_df <- deseq_df %>%
+  filter(abs(log2FoldChange) > 1 & padj < 0.05)
+
+saveRDS(deg_df, file = "deg_df.RDS")
+
 # Save and summarize findings
-write_tsv(deseq_df, file.path("results/SRP040561_DEG_results.tsv"))
+write_tsv(deseq_df, file.path("results/SRP040561_DESeq2_results.tsv"))
+write_tsv(deg_df, file.path("results/SRP040561_DEG.tsv"))
 
 ```
 
@@ -187,7 +235,9 @@ volcano_plot
 dev.off()
 ```
 
+# Enrichment Analysis 
 
+<<<<<<< HEAD
 ```{r}
 # Heatmap
 # List of differentially expressed genes
@@ -211,9 +261,98 @@ h <- Heatmap(mat.z, cluster_rows = TRUE, cluster_columns = TRUE, column_labels =
 png(filename = "results/SRP040561_heatmap.png", res = 250, width = 1000, height = 2000)
 print(h)
 dev.off()
-```
+=======
+## topGO
 
-## Enrichment Analysis 
+Run topGO for gene set enrichment analysis using Gene Ontology (GO).
+GO terms can be split into three ontologies: Biological processes (BP), molecular functions (MF), and cellular components (CC).
+
+```{r warning=FALSE}
+# Create annotation file from collapsed_mapping_df
+go_annots <- collapsed_mapping_df %>%
+    select(ensembl_gene_id, go_ids)
+
+write.table(go_annots,
+            file = "annotations.txt",
+            sep = "\t",
+            row.names = FALSE,
+            col.names = FALSE,
+            quote = FALSE)
+
+# Initialize variables for topGO
+geneIDtoGO <- readMappings(file = "annotations.txt")
+geneUniverse <- names(geneIDtoGO)
+genesOfInterest <- as.character(deg_df$Gene)
+geneList <- factor(as.integer(geneUniverse %in% genesOfInterest))
+names(geneList) <- geneUniverse
+
+topGORes <- function(ont) {
+  # Create topGO object
+  GOdata <- new("topGOdata",
+              description = "topGO",
+              ontology = ont,
+              allGenes = geneList,
+              geneSel = deg_df$Gene,
+              annot = annFUN.gene2GO,
+              gene2GO = geneIDtoGO)
+  
+  # Run a weighted Fisher's exact test, taking GO hierarchy into account
+  resultFisher <- runTest(GOdata,
+                        algorithm = 'weight01',
+                        statistic = 'fisher')
+  allGO <- usedGO(GOdata)
+  topGO_res_init <- GenTable(GOdata,
+                    weightFisher = resultFisher,
+                    orderBy = 'weightFisher',
+                    topNodes = length(allGO))
+
+  # Adjust p-values using Benjamini-Hochberg correction
+  padj <- round(p.adjust(topGO_res_init$weightFisher, method = "BH"), digits = 4)
+  topGO_res <- cbind(topGO_res_init, padj)
+  topGO_res <- topGO_res[order(topGO_res$padj),]
+  
+  return(topGO_res)
+} 
+
+topGO_BP <- topGORes("BP")
+topGO_MF <- topGORes("MF")
+topGO_CC <- topGORes("CC")
+
+topGO_results <- rbind(topGO_BP, topGO_MF, topGO_CC)
+
+# Save and summarize findings
+saveRDS(topGO_results, file = "topGO_results.RDS")
+write_tsv(topGO_results, file.path("results/SRP040561_topGO_results.tsv"))
+>>>>>>> DESeq
+```
+## clusterProfiler
+
+Run clusterProfiler for gene set enrichment analysis using Gene Ontology (GO). 
+
+```{r warning=FALSE}
+# Prepare input for clusterProfiler
+gene_list <- deg_df$log2FoldChange
+names(gene_list) <- deg_df$Gene
+gene_list <- na.omit(gene_list)
+gene_list <- sort(gene_list, decreasing = TRUE)
+
+# BP, MF, and CC ontologies are all included
+enrichment <- enrichGO(
+  gene=deg_df$Gene,
+  OrgDb = "org.Mm.eg.db", 
+  keyType = "ENSEMBL",
+  ont ="ALL",
+  pAdjustMethod = "BH",
+  pvalueCutoff = 0.05,
+)
+
+# Create data frame of gene set enrichment results
+clusterProfiler_df <- as.data.frame(enrichment@result)
+
+# Save and summarize findings
+saveRDS(clusterProfiler_df, file = "clusterProfiler_results.RDS")
+write_tsv(clusterProfiler_df, file.path("results/SRP040561_clusterProfiler_results.tsv"))
+```
 
 ## gProfiler2
 ```{r}
