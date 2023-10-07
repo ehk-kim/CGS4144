@@ -18,6 +18,7 @@ library(topGO)
 library(clusterProfiler)
 library(gprofiler2)
 library(ComplexHeatmap)
+library(umap)
 ```
 
 ## Read in data
@@ -56,8 +57,8 @@ collapsed_mapping_df <- mapping_ensembl_to_symbol %>%
   # Group by Ensembl IDs
   group_by(ensembl_gene_id) %>%
   # Collapse the mgi symbols `mapping_df` into one column named `all_symbols`
-  summarize(all_symbols = paste(mgi_symbol, collapse = ";"),
-            go_ids = paste(go_id, collapse = ";"))
+  summarize(all_symbols = paste(unique(mgi_symbol), collapse = ";"),
+            go_ids = paste(unique(go_id), collapse = ";"))
 
 final_mapping_df <- collapsed_mapping_df %>%
   # Add the rest of the expression data
@@ -122,27 +123,15 @@ metadata <- metadata %>%
     time_passed = factor(time_passed, levels = c("4m", "8m"))
   )
 
-deseq <- DESeqDataSetFromMatrix(gene_matrix, metadata, ~refinebio_specimen_part)
-deseq <- DESeq(deseq)
+ddset <- DESeqDataSetFromMatrix(gene_matrix, metadata, ~refinebio_specimen_part)
+deseq <- DESeq(ddset)
 
 plotPCA(DESeqTransform(deseq), intgroup = "refinebio_specimen_part")
 ```
+
 ## UMAP Plot
 ```{r}
-library("umap")
-library(readr)
-library(dplyr)
-
-
-# 1. Subset the Data for Hippocampus and Cortex
-# Assuming 'metadata' contains the metadata information
-gene <- DESeqDataSetFromMatrix(
-  countData = gene_matrix, # the counts values for all samples in our dataset
-  colData = metadata, # annotation data for the samples in the counts data frame
-  design = ~refinebio_specimen_part # Here we are not specifying a model
-  # Replace with an appropriate design variable for your analysis
-)
-gene_norm <- vst(gene)
+gene_norm <- vst(ddset)
 normalized_counts <- assay(gene_norm) %>%
   t() # We need to transpose this data so each row is a sample
 umap_results <- umap::umap(normalized_counts)
@@ -183,13 +172,6 @@ nrow(filtered_expression_df)
 # Change all counts to integers
 gene_matrix <- round(filtered_expression_df)
 
-ddset <- DESeqDataSetFromMatrix(
-  countData = gene_matrix,
-  colData = metadata,
-  design = ~refinebio_specimen_part
-)
-
-deseq <- DESeq(ddset)
 deseq_results <- results(deseq)
 
 # Get shrunken log fold change estimates to decrease noise and preserve large differences between groups
@@ -235,11 +217,8 @@ volcano_plot
 dev.off()
 ```
 
-# Enrichment Analysis 
-
-<<<<<<< HEAD
-```{r}
 # Heatmap
+```{r}
 # List of differentially expressed genes
 filtered_deseq_df <- deseq_df %>% 
   filter(abs(log2FoldChange) > 1 & padj < 0.05)
@@ -261,7 +240,11 @@ h <- Heatmap(mat.z, cluster_rows = TRUE, cluster_columns = TRUE, column_labels =
 png(filename = "results/SRP040561_heatmap.png", res = 250, width = 1000, height = 2000)
 print(h)
 dev.off()
-=======
+```
+
+# Enrichment Analysis 
+
+
 ## topGO
 
 Run topGO for gene set enrichment analysis using Gene Ontology (GO).
@@ -323,8 +306,9 @@ topGO_results <- rbind(topGO_BP, topGO_MF, topGO_CC)
 # Save and summarize findings
 saveRDS(topGO_results, file = "topGO_results.RDS")
 write_tsv(topGO_results, file.path("results/SRP040561_topGO_results.tsv"))
->>>>>>> DESeq
 ```
+
+
 ## clusterProfiler
 
 Run clusterProfiler for gene set enrichment analysis using Gene Ontology (GO). 
