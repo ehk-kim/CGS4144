@@ -29,5 +29,5 @@ saveRDS(topGenes, "topGenes.RDS")
 
 ## Read in data
 ```{r}
-readRDS("topGenes.RDS")
+topGenes <- readRDS("topGenes.RDS")
 ```
