@@ -1,0 +1,33 @@
+# Assignment 3
+
+## Load all libraries
+```{r, warning=FALSE}
+library(magrittr)
+library(readr)
+library(dplyr)
+library(tidyr)
+```
+
+## Get 5000 most variable genes
+
+This code chunk only needs to be run once to generate the topGenes.RDS file.
+One the RDS object has been generated, skip straight to "Read in data".
+```{r}
+deseq <- readRDS("deseq.RDS")
+deseq_df <- readRDS("deseq_df.RDS")
+collapsed_mapping_df <- readRDS("collapsed_mapping_df.RDS")
+
+deseq_df <- deseq_df %>%
+  inner_join(collapsed_mapping_df, by = c("Gene" = "ensembl_gene_id"))
+mat <- counts(deseq, normalized = T)[deseq_df$Gene,]
+
+topGenesMat <- head(order(rowVars(mat), decreasing = TRUE), 5000)
+topGenes <- mat[topGenesMat,]
+
+saveRDS(topGenes, "topGenes.RDS")
+```
+
+## Read in data
+```{r}
+readRDS("topGenes.RDS")
+```
