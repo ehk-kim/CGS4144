@@ -127,23 +127,18 @@ hc_res  <- hclust(distance, method = "complete")
 
 # 1 cluster
 hc_res_1 <- cutree(hc_res, k = 1)
-table(hc_res_1)
 
 # 2 clusters 
 hc_res_2 <- cutree(hc_res, k = 2)
-table(hc_res_2)
 
 # 3 clusters 
 hc_res_3 <- cutree(hc_res, k = 3)
-table(hc_res_3)
 
 # 4 clusters 
 hc_res_4 <- cutree(hc_res, k = 4)
-table(hc_res_4)
 
 # 10 clusters 
 hc_res_10 <- cutree(hc_res, k = 10)
-table(hc_res_10)
 
 # Visualize dendrogram
 h <- plot(hc_res, cex = 0.6, hang = -1)
