@@ -116,73 +116,73 @@ km_res_top10k <- kmeans(x = topGenes_df_test,
 library(factoextra) # clustering visualization
 set.seed(999)
 
-# Perform normalization -- NOT COMPLETED
-
-# Transpose matrix 
-trans_topGenes = t(topGenes)
-trans_topGenes_df = t(topGenes_df)
-
 # Check optimal number of clusters
-fviz_nbclust(x = trans_topGenes, FUNcluster = hcut, method="wss")
+fviz_nbclust(x = topGenes, FUNcluster = hcut, method="wss")
 
+topGenes_df <- as.data.frame(topGenes)
+topGenes10k_df <- as.data.frame(topGenes10k)
 
-distance <- dist(trans_topGenes_df, method = "euclidean")
+distance <- dist(topGenes_df, method = "euclidean")
 hc_res  <- hclust(distance, method = "complete")
 
 # 1 cluster
 hc_res_1 <- cutree(hc_res, k = 1)
+table(hc_res_1)
 
 # 2 clusters 
 hc_res_2 <- cutree(hc_res, k = 2)
+table(hc_res_2)
 
 # 3 clusters 
 hc_res_3 <- cutree(hc_res, k = 3)
+table(hc_res_3)
 
 # 4 clusters 
 hc_res_4 <- cutree(hc_res, k = 4)
+table(hc_res_4)
 
 # 10 clusters 
 hc_res_10 <- cutree(hc_res, k = 10)
+table(hc_res_10)
 
 # Visualize dendrogram
 h <- plot(hc_res, cex = 0.6, hang = -1)
-rect.hclust(hc_res, k = 2, border = 2:5)
+rect.hclust(hc_res, k = 3, border = 2:5)
 
 # Visualize clusters
-fviz_cluster(list(data = trans_topGenes, cluster = hc_res_2), geom = ("point"))
-
+fviz_cluster(list(data = topGenes, cluster = hc_res_3), geom = ("point"))
 
 # Top 10 genes
-topGenes_df_test <- head(scale(scale(topGenes_df)), 10)
-distance <- dist(t(topGenes_df_test), method = "euclidean")
+topGenes_df_test <- head(topGenes_df, 10)
+distance <- dist(topGenes_df_test, method = "euclidean")
 hc_res_top10  <- hclust(distance, method = "complete")
 plot(hc_res_top10, cex = 0.6, hang = -1)
-hc.cut <- cutree(hc_res_top10, k = 2)
-fviz_cluster(list(data = trans_topGenes, cluster = hc.cut), geom = ("point"))
+hc.cut <- cutree(hc_res_top10, k = 3)
+fviz_cluster(list(data = topGenes, cluster = hc.cut), geom = ("point"))
 
 # Top 100 genes
-topGenes_df_test <- head(scale(scale(topGenes_df)), 100)
-distance <- dist(t(topGenes_df_test), method = "euclidean")
+topGenes_df_test <- head(topGenes_df, 100)
+distance <- dist(topGenes_df_test, method = "euclidean")
 hc_res_top100  <- hclust(distance, method = "complete")
 plot(hc_res_top100, cex = 0.6, hang = -1)
-hc.cut <- cutree(hc_res_top100, k = 2)
-fviz_cluster(list(data = trans_topGenes, cluster = hc.cut), geom = ("point"))
+hc.cut <- cutree(hc_res_top100, k = 3)
+fviz_cluster(list(data = topGenes, cluster = hc.cut), geom = ("point"))
 
 # Top 1000 genes
-topGenes_df_test <- head(scale(scale(topGenes_df)), 1000)
-distance <- dist(t(topGenes_df_test), method = "euclidean")
+topGenes_df_test <- head(topGenes_df, 1000)
+distance <- dist(topGenes_df_test, method = "euclidean")
 hc_res_top1000  <- hclust(distance, method = "complete")
 plot(hc_res_top1000, cex = 0.6, hang = -1)
-hc.cut <- cutree(hc_res_top1000, k = 2)
-fviz_cluster(list(data = trans_topGenes, cluster = hc.cut), geom = ("point"))
+hc.cut <- cutree(hc_res_top1000, k = 3)
+fviz_cluster(list(data = topGenes, cluster = hc.cut), geom = ("point"))
 
 # Top 10k genes
-topGenes_df_test <- head(scale(scale(topGenes10k_df)), 10000)
-distance <- dist(t(topGenes_df_test), method = "euclidean")
+topGenes_df_test <- head(topGenes10k_df, 10000)
+distance <- dist(topGenes_df_test, method = "euclidean")
 hc_res_top10000  <- hclust(distance, method = "complete")
 plot(hc_res_top10000, cex = 0.6, hang = -1)
-hc.cut <- cutree(hc_res_top10000, k = 2)
-fviz_cluster(list(data = trans_topGenes, cluster = hc.cut), geom = ("point"))
+hc.cut <- cutree(hc_res_top10000, k = 3)
+fviz_cluster(list(data = topGenes, cluster = hc.cut), geom = ("point"))
 ```
 
 ## Alluvial diagram
