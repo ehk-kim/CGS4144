@@ -6,6 +6,7 @@ library(magrittr)
 library(readr)
 library(dplyr)
 library(tidyr)
+library(cluster)
 ```
 
 ## Get 5000 most variable genes
@@ -39,7 +40,7 @@ topGenes10k <- readRDS("topGenes10k.RDS")
 
 ## K-means
 ```{r}
-library(factoextra)
+library(cluster)
 
 set.seed(999)
 
@@ -183,6 +184,72 @@ hc_res_top10000  <- hclust(distance, method = "complete")
 plot(hc_res_top10000, cex = 0.6, hang = -1)
 hc.cut <- cutree(hc_res_top10000, k = 2)
 fviz_cluster(list(data = trans_topGenes, cluster = hc.cut), geom = ("point"))
+```
+
+##PAM Clustering: 
+```{r}
+library(cluster)
+
+set.seed(999)
+
+topGenes_df <- as.data.frame(topGenes)
+topGenes10k_df <- as.data.frame(topGenes10k)
+
+# Check optimal number of clusters
+fviz_nbclust(x = topGenes, FUNcluster = pam, method = "wss")
+
+# 1 cluster
+pam_res_1 <- pam(x = topGenes, k = 1)
+
+# 2 clusters
+pam_res_2 <- pam(x = topGenes, k = 2)
+
+# 3 clusters
+pam_res_3 <- pam(x = topGenes, k = 3)
+
+# 4 clusters
+pam_res_4 <- pam(x = topGenes, k = 4)
+
+# 10 clusters
+pam_res_10 <- pam(x = topGenes, k = 10)
+
+# Visualize clusters
+fviz_cluster(pam_res_4, data = topGenes, geom = "point")
+
+# Top 10 genes
+topGenes_df_test <- head(topGenes_df, 10)
+pam_res_top10 <- pam(x = topGenes_df_test, k = 3)
+
+# Top 100 genes
+topGenes_df_test <- head(topGenes_df, 100)
+pam_res_top100 <- pam(x = topGenes_df_test, k = 3)
+
+# Top 1000 genes
+topGenes_df_test <- head(topGenes_df, 1000)
+pam_res_top1000 <- pam(x = topGenes_df_test, k = 3)
+
+# Top 10k genes
+topGenes_df_test <- head(topGenes10k_df, 10000)
+pam_res_top10k <- pam(x = topGenes_df_test, k = 3)
+
+cluster_data <- data.frame(
+  "Original" = km_res_4$cluster,
+  "PAM_2" = pam_res_2$clustering,
+  "PAM_3" = pam_res_3$clustering,
+  "PAM_4" = pam_res_4$clustering,
+  "PAM_10" = pam_res_10$clustering
+)
+
+ggplot(cluster_data, aes(axis1 = Original, axis2 = PAM_2, y = after_stat(stratum))) +
+  geom_alluvium(aes(fill = as.factor(Original))) +
+  geom_stratum(aes(fill = as.factor(PAM_2))) +
+  scale_x_discrete(limits = c("Original", "PAM_2", "PAM_3", "PAM_4", "PAM_10")) +
+  scale_fill_manual(values = c("orange", "pink")) +
+  theme_void() +
+  labs(title = "Alluvial Diagram (how different clustering setups changed cluster memberships):",
+       x = "Clustering Setup",
+       y = "Sample ID")
+
 ```
 
 ## Alluvial diagram
