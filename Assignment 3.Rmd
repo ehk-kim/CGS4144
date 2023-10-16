@@ -8,6 +8,7 @@ library(dplyr)
 library(tidyr)
 library(factoextra)
 library(matrixStats)
+library(ggalluvial)
 ```
 
 ## Get 5000 most variable genes
@@ -43,6 +44,8 @@ topGenes10k <- t(topGenes10k)
 
 topGenes_df <- as.data.frame(topGenes)
 topGenes10k_df <- as.data.frame(topGenes10k)
+
+metadata <- read_tsv("SRP119064/metadata_SRP119064.tsv")
 ```
 
 ## K-means
@@ -53,52 +56,57 @@ set.seed(999)
 fviz_nbclust(x = topGenes, FUNcluster = kmeans, method="wss")
 
 # 1 cluster
-km_res_1 <- kmeans(x = topGenes,
-                centers = 1,
-                iter.max = 10,
-                nstart = 25)
+km_res_1 <- kmeans(x = topGenes, centers = 1, iter.max = 10, nstart = 25)
 
 # 2 clusters | This is the ideal number
-km_res_2 <- kmeans(x = topGenes,
-                centers = 2,
-                iter.max = 10,
-                nstart = 25)
+km_res_1 <- kmeans(x = topGenes, centers = 2, iter.max = 10, nstart = 25)
 
 # 3 clusters 
-km_res_3 <- kmeans(x = topGenes,
-                centers = 3,
-                iter.max = 10,
-                nstart = 25)
+km_res_1 <- kmeans(x = topGenes, centers = 3, iter.max = 10, nstart = 25)
 
 # Visualize clusters
 fviz_cluster(km_res_2, topGenes, geom = ("point"))
 
 # Top 10 genes
 topGenes_df_test <- as.data.frame(topGenes_df[,1:10])
-km_res_top10 <- kmeans(x = topGenes_df_test,
-                centers = 2,
-                iter.max = 10,
-                nstart = 25)
+km_res_top10 <- kmeans(x = topGenes_df_test, centers = 2, iter.max = 10, nstart = 25)
 
 # Top 100 genes
 topGenes_df_test <- as.data.frame(topGenes_df[,1:100])
-km_res_top100 <- kmeans(x = topGenes_df_test,
-                centers = 2,
-                iter.max = 10,
-                nstart = 25)
+km_res_top100 <- kmeans(x = topGenes_df_test, centers = 2, iter.max = 10, nstart = 25)
 
 # Top 1000 genes
 topGenes_df_test <- as.data.frame(topGenes_df[,1:1000])
-km_res_top1000 <- kmeans(x = topGenes_df_test,
-                centers = 2,
-                iter.max = 10,
-                nstart = 25)
+km_res_top1000 <- kmeans(x = topGenes_df_test, centers = 2, iter.max = 10, nstart = 25)
 
 # Top 10k genes
-km_res_top10k <- kmeans(x = topGenes10k_df,
-                centers = 2,
-                iter.max = 10,
-                nstart = 25)
+km_res_top10k <- kmeans(x = topGenes10k_df, centers = 2, iter.max = 10, nstart = 25)
+
+# Alluvial diagram
+km_alluvial_df <- as.data.frame(km_res_top10$cluster)
+km_alluvial_df <- cbind(km_alluvial_df,
+                     as.data.frame(km_res_top100$cluster),
+                     as.data.frame(km_res_top1000$cluster),
+                     as.data.frame(km_res_top10k$cluster),
+                     metadata$refinebio_specimen_part)
+colnames(km_alluvial_df) <- c("ten_genes", "hun_genes", "thou_genes", "tenthou_genes", "brain_part")
+
+# Put into alluvial format
+km_alluvial_df <- km_alluvial_df %>%
+                  group_by(ten_genes, hun_genes, thou_genes, tenthou_genes, brain_part) %>%
+                  summarise(freq = n())
+
+# Plot alluvial diagram
+ggplot(km_alluvial_df,
+       aes(y = freq, axis1 = ten_genes, axis2 = hun_genes, axis3 = thou_genes, axis4 = tenthou_genes)) +
+  geom_alluvium(aes(fill = brain_part), width = 1/12) +
+  geom_stratum(width = 1/8, fill = "black", color = "grey") +
+  geom_label(stat = "stratum", aes(label = after_stat(stratum))) +
+  scale_x_discrete(limits = c("10 genes", "100 genes", "1000 genes", "10k genes"), expand = c(.02, .02)) +
+  ylab("Frequency") +
+  guides(fill = guide_legend(title = "Brain part")) +
+  scale_fill_brewer(type = "qual", palette = "Set1") +
+  ggtitle("Clustering setups and cluster membership")
 ```
 
 ## Hierarchical Clustering
