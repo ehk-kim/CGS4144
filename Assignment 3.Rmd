@@ -1,11 +1,13 @@
 # Assignment 3
 
 ## Load all libraries
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 library(magrittr)
 library(readr)
 library(dplyr)
 library(tidyr)
+library(factoextra)
+library(matrixStats)
 ```
 
 ## Get 5000 most variable genes
@@ -35,16 +37,17 @@ saveRDS(topGenes10k, "topGenes10k.RDS")
 ```{r}
 topGenes <- readRDS("topGenes.RDS")
 topGenes10k <- readRDS("topGenes10k.RDS")
+
+topGenes <- t(topGenes)
+topGenes10k <- t(topGenes10k)
+
+topGenes_df <- as.data.frame(topGenes)
+topGenes10k_df <- as.data.frame(topGenes10k)
 ```
 
 ## K-means
 ```{r}
-library(factoextra)
-
 set.seed(999)
-
-topGenes_df <- as.data.frame(topGenes)
-topGenes10k_df <- as.data.frame(topGenes10k)
 
 # Check optimal number of clusters
 fviz_nbclust(x = topGenes, FUNcluster = kmeans, method="wss")
@@ -55,7 +58,7 @@ km_res_1 <- kmeans(x = topGenes,
                 iter.max = 10,
                 nstart = 25)
 
-# 2 clusters 
+# 2 clusters | This is the ideal number
 km_res_2 <- kmeans(x = topGenes,
                 centers = 2,
                 iter.max = 10,
@@ -67,60 +70,43 @@ km_res_3 <- kmeans(x = topGenes,
                 iter.max = 10,
                 nstart = 25)
 
-# 4 clusters 
-km_res_4 <- kmeans(x = topGenes,
-                centers = 4,
-                iter.max = 10,
-                nstart = 25)
-
-# 10 clusters 
-km_res_10 <- kmeans(x = topGenes,
-                centers = 10,
-                iter.max = 10,
-                nstart = 25)
-
 # Visualize clusters
-fviz_cluster(km_res_4, topGenes, geom = ("point"))
+fviz_cluster(km_res_2, topGenes, geom = ("point"))
 
 # Top 10 genes
-topGenes_df_test <- head(topGenes_df, 10)
+topGenes_df_test <- as.data.frame(topGenes_df[,1:10])
 km_res_top10 <- kmeans(x = topGenes_df_test,
-                centers = 3,
+                centers = 2,
                 iter.max = 10,
                 nstart = 25)
 
 # Top 100 genes
-topGenes_df_test <- head(topGenes_df, 100)
+topGenes_df_test <- as.data.frame(topGenes_df[,1:100])
 km_res_top100 <- kmeans(x = topGenes_df_test,
-                centers = 3,
+                centers = 2,
                 iter.max = 10,
                 nstart = 25)
 
 # Top 1000 genes
-topGenes_df_test <- head(topGenes_df, 1000)
+topGenes_df_test <- as.data.frame(topGenes_df[,1:1000])
 km_res_top1000 <- kmeans(x = topGenes_df_test,
-                centers = 3,
+                centers = 2,
                 iter.max = 10,
                 nstart = 25)
 
 # Top 10k genes
-topGenes_df_test <- head(topGenes10k_df, 10000)
-km_res_top10k <- kmeans(x = topGenes_df_test,
-                centers = 3,
+km_res_top10k <- kmeans(x = topGenes10k_df,
+                centers = 2,
                 iter.max = 10,
                 nstart = 25)
 ```
 
 ## Hierarchical Clustering
 ```{r}
-library(factoextra) # clustering visualization
 set.seed(999)
 
 # Check optimal number of clusters
 fviz_nbclust(x = topGenes, FUNcluster = hcut, method="wss")
-
-topGenes_df <- as.data.frame(topGenes)
-topGenes10k_df <- as.data.frame(topGenes10k)
 
 distance <- dist(topGenes_df, method = "euclidean")
 hc_res  <- hclust(distance, method = "complete")
@@ -128,55 +114,52 @@ hc_res  <- hclust(distance, method = "complete")
 # 1 cluster
 hc_res_1 <- cutree(hc_res, k = 1)
 
-# 2 clusters 
+# 2 clusters | This is the ideal number
 hc_res_2 <- cutree(hc_res, k = 2)
 
 # 3 clusters 
 hc_res_3 <- cutree(hc_res, k = 3)
 
-# 4 clusters 
-hc_res_4 <- cutree(hc_res, k = 4)
-
-# 10 clusters 
-hc_res_10 <- cutree(hc_res, k = 10)
-
 # Visualize dendrogram
 h <- plot(hc_res, cex = 0.6, hang = -1)
-rect.hclust(hc_res, k = 3, border = 2:5)
+rect.hclust(hc_res, k = 2, border = 2:5)
 
 # Visualize clusters
-fviz_cluster(list(data = topGenes, cluster = hc_res_3), geom = ("point"))
+fviz_cluster(list(data = topGenes, cluster = hc_res_2), geom = ("point"))
 
 # Top 10 genes
-topGenes_df_test <- head(topGenes_df, 10)
+topGenes_df_test <- as.data.frame(topGenes_df[,1:10])
 distance <- dist(topGenes_df_test, method = "euclidean")
 hc_res_top10  <- hclust(distance, method = "complete")
+
 plot(hc_res_top10, cex = 0.6, hang = -1)
-hc.cut <- cutree(hc_res_top10, k = 3)
+hc.cut <- cutree(hc_res_top10, k = 2)
 fviz_cluster(list(data = topGenes, cluster = hc.cut), geom = ("point"))
 
 # Top 100 genes
-topGenes_df_test <- head(topGenes_df, 100)
+topGenes_df_test <- as.data.frame(topGenes_df[,1:100])
 distance <- dist(topGenes_df_test, method = "euclidean")
 hc_res_top100  <- hclust(distance, method = "complete")
+
 plot(hc_res_top100, cex = 0.6, hang = -1)
-hc.cut <- cutree(hc_res_top100, k = 3)
+hc.cut <- cutree(hc_res_top100, k = 2)
 fviz_cluster(list(data = topGenes, cluster = hc.cut), geom = ("point"))
 
 # Top 1000 genes
-topGenes_df_test <- head(topGenes_df, 1000)
+topGenes_df_test <- as.data.frame(topGenes_df[,1:1000])
 distance <- dist(topGenes_df_test, method = "euclidean")
 hc_res_top1000  <- hclust(distance, method = "complete")
+
 plot(hc_res_top1000, cex = 0.6, hang = -1)
-hc.cut <- cutree(hc_res_top1000, k = 3)
+hc.cut <- cutree(hc_res_top1000, k = 2)
 fviz_cluster(list(data = topGenes, cluster = hc.cut), geom = ("point"))
 
 # Top 10k genes
-topGenes_df_test <- head(topGenes10k_df, 10000)
-distance <- dist(topGenes_df_test, method = "euclidean")
+distance <- dist(topGenes10k_df, method = "euclidean")
 hc_res_top10000  <- hclust(distance, method = "complete")
+
 plot(hc_res_top10000, cex = 0.6, hang = -1)
-hc.cut <- cutree(hc_res_top10000, k = 3)
+hc.cut <- cutree(hc_res_top10000, k = 2)
 fviz_cluster(list(data = topGenes, cluster = hc.cut), geom = ("point"))
 ```
 
@@ -191,7 +174,7 @@ fviz_cluster(list(data = topGenes, cluster = hc.cut), geom = ("point"))
 # Need all clustering methods done
 
 # Heatmap outline
-# K means | hclust | PAM | Gaussian | 
+# K means | hclust | PAM |
 ```
 
 ## Statistics
