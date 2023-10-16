@@ -6,6 +6,7 @@ library(magrittr)
 library(readr)
 library(dplyr)
 library(tidyr)
+library(ComplexHeatmap)
 ```
 
 ## Get 5000 most variable genes
@@ -188,7 +189,41 @@ fviz_cluster(list(data = topGenes, cluster = hc.cut), geom = ("point"))
 
 ## Heatmaps & dendrograms
 ```{r}
-# Need all clustering methods done
+# K-menas
+
+
+# Hierarchical Clustering
+# List of differentially expressed genes
+
+mat.z <- t(apply(topGenes_df, 1, scale))
+colnames(mat.z) <- colnames(topGenes_df)
+
+h <-Heatmap(mat.z, cluster_rows = TRUE, cluster_columns = TRUE, column_labels = colnames(mat.z), name = "Z-score", row_labels = rownames(topGenes_df))
+png(filename = "results/test.png", res = 250, width = 1000, height = 2000)
+print(h)
+dev.off()
+
+```
+filtered_deseq_df <- deseq_df %>% 
+  filter(abs(log2FoldChange) > 1 & padj < 0.05)
+
+heatmap_filtered_deseq_df <- filtered_deseq_df[(filtered_deseq_df$baseMean > 10) & (abs(filtered_deseq_df$log2FoldChange) > 1.5),]
+
+heatmap_filtered_deseq_df <- heatmap_filtered_deseq_df %>%
+  inner_join(collapsed_mapping_df, by = c("Gene" = "ensembl_gene_id"))
+mat <- counts(deseq, normalized = T)[heatmap_filtered_deseq_df$Gene,]
+
+mat.z <- t(apply(mat, 1, scale))
+colnames(mat.z) <- colnames(mat)
+
+heatmap_filtered_deseq_df <- heatmap_filtered_deseq_df %>%
+  tibble::column_to_rownames("Gene")
+
+h <- Heatmap(mat.z, cluster_rows = TRUE, cluster_columns = TRUE, column_labels = colnames(mat.z), name = "Z-score", row_labels = heatmap_filtered_deseq_df[rownames(mat.z),]$all_symbols)
+
+png(filename = "results/SRP040561_heatmap.png", res = 250, width = 1000, height = 2000)
+print(h)
+dev.off()
 
 # Heatmap outline
 # K means | hclust | PAM | Gaussian | 
