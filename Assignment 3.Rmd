@@ -163,10 +163,58 @@ hc.cut <- cutree(hc_res_top10000, k = 2)
 fviz_cluster(list(data = topGenes, cluster = hc.cut), geom = ("point"))
 ```
 
-## Alluvial diagram
+##PAM Clustering
 ```{r}
-# Need all clustering methods done?
-# genes (freq) || cluster method 1 | cluster method 2 | etc?
+library(cluster)
+
+set.seed(999)
+
+# Check optimal number of clusters
+fviz_nbclust(x = topGenes, FUNcluster = pam, method = "wss")
+
+# 1 cluster
+pam_res_1 <- pam(x = topGenes, k = 1)
+
+# 2 clusters
+pam_res_2 <- pam(x = topGenes, k = 2)
+
+# 3 clusters
+pam_res_3 <- pam(x = topGenes, k = 3)
+
+# Visualize clusters
+fviz_cluster(pam_res_4, data = topGenes, geom = "point")
+
+# Top 10 genes
+topGenes_df_test <- as.data.frame(topGenes_df[,1:10])
+pam_res_top10 <- pam(x = topGenes_df_test, k = 2)
+
+# Top 100 genes
+topGenes_df_test <- as.data.frame(topGenes_df[,1:100])
+pam_res_top100 <- pam(x = topGenes_df_test, k = 2)
+
+# Top 1000 genes
+topGenes_df_test <- as.data.frame(topGenes_df[,1:1000])
+pam_res_top1000 <- pam(x = topGenes_df_test, k = 2)
+
+# Top 10k genes
+pam_res_top10k <- pam(x = topGenes10k_df, k = 2)
+
+cluster_data <- data.frame(
+  "Original" = km_res_4$cluster,
+  "PAM_2" = pam_res_2$clustering,
+  "PAM_3" = pam_res_3$clustering,
+)
+
+ggplot(cluster_data, aes(axis1 = Original, axis2 = PAM_2, y = after_stat(stratum))) +
+  geom_alluvium(aes(fill = as.factor(Original))) +
+  geom_stratum(aes(fill = as.factor(PAM_2))) +
+  scale_x_discrete(limits = c("Original", "PAM_2", "PAM_3")) +
+  scale_fill_manual(values = c("orange", "pink")) +
+  theme_void() +
+  labs(title = "Alluvial Diagram (how different clustering setups changed cluster memberships):",
+       x = "Clustering Setup",
+       y = "Sample ID")
+
 ```
 
 ## Heatmaps & dendrograms
