@@ -85,7 +85,6 @@ km_res_top10k <- kmeans(x = topGenes10k_df, centers = 2, iter.max = 10, nstart =
 
 # Alluvial diagram
 km_alluvial_df <- as.data.frame(km_res_top10$cluster)
-
 km_alluvial_df <- cbind(km_alluvial_df,
                      as.data.frame(km_res_top100$cluster),
                      as.data.frame(km_res_top1000$cluster),
