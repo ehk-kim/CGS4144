@@ -9,6 +9,7 @@ library(tidyr)
 library(factoextra)
 library(matrixStats)
 library(ggalluvial)
+library(ComplexHeatmap)
 ```
 
 ## Get 5000 most variable genes
@@ -35,7 +36,7 @@ saveRDS(topGenes10k, "topGenes10k.RDS")
 ```
 
 ## Read in data
-```{r}
+```{r, message=FALSE}
 topGenes <- readRDS("topGenes.RDS")
 topGenes10k <- readRDS("topGenes10k.RDS")
 
@@ -59,10 +60,10 @@ fviz_nbclust(x = topGenes, FUNcluster = kmeans, method="wss")
 km_res_1 <- kmeans(x = topGenes, centers = 1, iter.max = 10, nstart = 25)
 
 # 2 clusters | This is the ideal number
-km_res_1 <- kmeans(x = topGenes, centers = 2, iter.max = 10, nstart = 25)
+km_res_2 <- kmeans(x = topGenes, centers = 2, iter.max = 10, nstart = 25)
 
 # 3 clusters 
-km_res_1 <- kmeans(x = topGenes, centers = 3, iter.max = 10, nstart = 25)
+km_res_3 <- kmeans(x = topGenes, centers = 3, iter.max = 10, nstart = 25)
 
 # Visualize clusters
 fviz_cluster(km_res_2, topGenes, geom = ("point"))
@@ -171,7 +172,7 @@ hc.cut <- cutree(hc_res_top10000, k = 2)
 fviz_cluster(list(data = topGenes, cluster = hc.cut), geom = ("point"))
 ```
 
-##PAM Clustering
+## PAM Clustering
 ```{r}
 library(cluster)
 
@@ -226,11 +227,31 @@ ggplot(cluster_data, aes(axis1 = Original, axis2 = PAM_2, y = after_stat(stratum
 ```
 
 ## Heatmaps & dendrograms
-```{r}
-# Need all clustering methods done
+```{r, message=FALSE}
+# Prepare expression data
+topGenes_hm <- t(topGenes)
+topGenes_hm <- log2(topGenes_hm)
+topGenes_hm[topGenes_hm == -Inf] <- 0
 
-# Heatmap outline
-# K means | hclust | PAM |
+# Prepare annotation data
+annot_df <- as.data.frame(cbind(metadata$refinebio_specimen_part,
+                                km_res_2$cluster))
+
+colnames(annot_df) <- c("Brain_part", "Kmean_cluster")
+
+# Colors were taken from https://davidmathlogic.com/colorblind/
+sample_annot <- HeatmapAnnotation(df = annot_df,
+                                  col = list(Brain_part = c("cortex" = "#E1BE6A", "hippocampus" = "#40B0A6"),
+                                             Kmean_cluster = c("1" = "#1A85FF", "2" = "#D41159")),
+                                  annotation_label = c("Brain part", "K-mean cluster"))
+
+heatmap <- Heatmap(topGenes_hm,
+                   name = "Log-normalized counts",
+                   row_title = "Genes",
+                   column_title = "Samples",
+                   show_row_names = FALSE,
+                   show_column_names = FALSE,
+                   top_annotation = sample_annot)
 ```
 
 ## Statistics
