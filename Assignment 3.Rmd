@@ -10,6 +10,7 @@ library(ComplexHeatmap)
 library(factoextra)
 library(matrixStats)
 library(ggalluvial)
+library(tibble)
 ```
 
 ## Get 5000 most variable genes
@@ -119,15 +120,19 @@ fviz_nbclust(x = topGenes, FUNcluster = hcut, method="wss")
 
 distance <- dist(topGenes_df, method = "euclidean")
 hc_res  <- hclust(distance, method = "complete")
+hc.cut <- cutree(hc_res, k = 2)
 
 # 1 cluster
 hc_res_1 <- cutree(hc_res, k = 1)
+table(hc_res_1)
 
 # 2 clusters | This is the ideal number
 hc_res_2 <- cutree(hc_res, k = 2)
+table(hc_res_2)
 
 # 3 clusters 
 hc_res_3 <- cutree(hc_res, k = 3)
+table(hc_res_3)
 
 # Visualize dendrogram
 h <- plot(hc_res, cex = 0.6, hang = -1)
@@ -143,6 +148,7 @@ hc_res_top10  <- hclust(distance, method = "complete")
 
 plot(hc_res_top10, cex = 0.6, hang = -1)
 hc.cut10 <- cutree(hc_res_top10, k = 2)
+table(hc.cut10)
 fviz_cluster(list(data = topGenes, cluster = hc.cut10), geom = ("point"))
 
 # Top 100 genes
@@ -152,6 +158,7 @@ hc_res_top100  <- hclust(distance, method = "complete")
 
 plot(hc_res_top100, cex = 0.6, hang = -1)
 hc.cut100 <- cutree(hc_res_top100, k = 2)
+table(hc.cut100)
 fviz_cluster(list(data = topGenes, cluster = hc.cut100), geom = ("point"))
 
 # Top 1000 genes
@@ -161,6 +168,7 @@ hc_res_top1000  <- hclust(distance, method = "complete")
 
 plot(hc_res_top1000, cex = 0.6, hang = -1)
 hc.cut1000 <- cutree(hc_res_top1000, k = 2)
+table(hc.cut1000)
 fviz_cluster(list(data = topGenes, cluster = hc.cut1000), geom = ("point"))
 
 # Top 10k genes
@@ -169,6 +177,7 @@ hc_res_top10k  <- hclust(distance, method = "complete")
 
 plot(hc_res_top10k, cex = 0.6, hang = -1)
 hc.cut10k <- cutree(hc_res_top10k, k = 2)
+table(hc.cut10k)
 fviz_cluster(list(data = topGenes, cluster = hc.cut10k), geom = ("point"))
 
 # Alluvial diagram
@@ -254,10 +263,43 @@ ggplot(cluster_data, aes(axis1 = Original, axis2 = PAM_2, y = after_stat(stratum
 
 ## Heatmaps & dendrograms
 ```{r}
-# Need all clustering methods done
+# Values for heatmap
+test <- t(apply(topGenes_df, 1, scale))
+colnames(test) <- colnames(topGenes_df)
+
+# Sample Annotations
+metadataRownames <- metadata %>%
+  column_to_rownames("refinebio_accession_code") %>%
+  select("refinebio_specimen_part") %>%
+  rownames_to_column("refinebio_accession_code")
+topGenes_df <- topGenes_df %>%
+  rownames_to_column("sample")
+topGenesWithClustersAndPart <- topGenes_df %>%
+  inner_join(metadataRownames, by = c("sample" = "refinebio_accession_code")) %>% 
+  column_to_rownames("sample")
+topGenes_df <- topGenes_df %>%
+  column_to_rownames("sample")
+
+sampleAnnotations = HeatmapAnnotation(df = topGenesWithClustersAndPart, col = list(topGenesWithClustersAndPart$refinebio_specimen_part))
+
+#rownames(metadataRownames)
+#list(rownames(metadataRownames))
+#sampleAnnot = HeatmapAnnotation(df = metadataRownames$refinebio_specimen_part, col = list(rownames(metadataRownames)))
+#sampleAnnot
 
 # Heatmap outline
 # K means | hclust | PAM |
+
+# Hierarchical Clustering
+hierAnnot = HeatmapAnnotation(df = hc.cut)
+#draw(hierAnnot)
+
+
+
+
+
+
+               
 ```
 
 ## Statistics
