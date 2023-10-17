@@ -6,11 +6,10 @@ library(magrittr)
 library(readr)
 library(dplyr)
 library(tidyr)
-library(ComplexHeatmap)
 library(factoextra)
 library(matrixStats)
 library(ggalluvial)
-library(tibble)
+library(ComplexHeatmap)
 ```
 
 ## Get 5000 most variable genes
@@ -37,7 +36,7 @@ saveRDS(topGenes10k, "topGenes10k.RDS")
 ```
 
 ## Read in data
-```{r}
+```{r, message=FALSE}
 topGenes <- readRDS("topGenes.RDS")
 topGenes10k <- readRDS("topGenes10k.RDS")
 
@@ -207,7 +206,7 @@ ggplot(hc_alluvial_df,
   ggtitle("Clustering setups and cluster membership")
 ```
 
-##PAM Clustering
+## PAM Clustering
 ```{r}
 library(cluster)
 
@@ -262,44 +261,57 @@ ggplot(cluster_data, aes(axis1 = Original, axis2 = PAM_2, y = after_stat(stratum
 ```
 
 ## Heatmaps & dendrograms
-```{r}
-# Values for heatmap
-test <- t(apply(topGenes_df, 1, scale))
-colnames(test) <- colnames(topGenes_df)
+```{r, message=FALSE}
+# Prepare expression data
+topGenes_hm <- t(topGenes)
+topGenes_hm <- log2(topGenes_hm)
+topGenes_hm[topGenes_hm == -Inf] <- 0
 
-# Sample Annotations
-metadataRownames <- metadata %>%
-  column_to_rownames("refinebio_accession_code") %>%
-  select("refinebio_specimen_part") %>%
-  rownames_to_column("refinebio_accession_code")
-topGenes_df <- topGenes_df %>%
-  rownames_to_column("sample")
-topGenesWithClustersAndPart <- topGenes_df %>%
-  inner_join(metadataRownames, by = c("sample" = "refinebio_accession_code")) %>% 
-  column_to_rownames("sample")
-topGenes_df <- topGenes_df %>%
-  column_to_rownames("sample")
+# K-means clustering
 
-sampleAnnotations = HeatmapAnnotation(df = topGenesWithClustersAndPart, col = list(topGenesWithClustersAndPart$refinebio_specimen_part))
+# Prepare annotation data
+annot_df <- as.data.frame(cbind(metadata$refinebio_specimen_part,
+                                km_res_2$cluster))
 
-#rownames(metadataRownames)
-#list(rownames(metadataRownames))
-#sampleAnnot = HeatmapAnnotation(df = metadataRownames$refinebio_specimen_part, col = list(rownames(metadataRownames)))
-#sampleAnnot
+colnames(annot_df) <- c("Brain_part", "Kmean_cluster")
 
-# Heatmap outline
-# K means | hclust | PAM |
+# Colors were taken from https://davidmathlogic.com/colorblind/
+sample_annot <- HeatmapAnnotation(df = annot_df,
+                                  col = list(Brain_part = c("cortex" = "#E1BE6A", "hippocampus" = "#40B0A6"),
+                                             Kmean_cluster = c("1" = "#1A85FF", "2" = "#D41159")),
+                                  annotation_label = c("Brain part", "K-mean cluster"))
+
+heatmap <- Heatmap(topGenes_hm,
+                   name = "Log-normalized counts",
+                   row_title = "Genes",
+                   column_title = "Samples",
+                   show_row_names = FALSE,
+                   show_column_names = FALSE,
+                   top_annotation = sample_annot)
+
+
 
 # Hierarchical Clustering
-hierAnnot = HeatmapAnnotation(df = hc.cut)
-#draw(hierAnnot)
 
+# Prepare annotation data
+annot_df_hc <- as.data.frame(cbind(metadata$refinebio_specimen_part,
+                                hc.cut))
 
+colnames(annot_df_hc) <- c("Brain_part", "Kmean_cluster")
 
+# Colors were taken from https://davidmathlogic.com/colorblind/
+sample_annot_hc <- HeatmapAnnotation(df = annot_df_hc,
+                                  col = list(Brain_part = c("cortex" = "#E1BE6A", "hippocampus" = "#40B0A6"),
+                                             Hier_cluster = c("1" = "#1A85FF", "2" = "#D41159")),
+                                  annotation_label = c("Brain part", "Hierarchical cluster"))
 
-
-
-               
+heatmap <- Heatmap(topGenes_hm,
+                   name = "Log-normalized counts",
+                   row_title = "Genes",
+                   column_title = "Samples",
+                   show_row_names = FALSE,
+                   show_column_names = FALSE,
+                   top_annotation = sample_annot_hc)
 ```
 
 ## Statistics
