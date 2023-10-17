@@ -60,10 +60,10 @@ fviz_nbclust(x = topGenes, FUNcluster = kmeans, method="wss")
 km_res_1 <- kmeans(x = topGenes, centers = 1, iter.max = 10, nstart = 25)
 
 # 2 clusters | This is the ideal number
-km_res_1 <- kmeans(x = topGenes, centers = 2, iter.max = 10, nstart = 25)
+km_res_2 <- kmeans(x = topGenes, centers = 2, iter.max = 10, nstart = 25)
 
 # 3 clusters 
-km_res_1 <- kmeans(x = topGenes, centers = 3, iter.max = 10, nstart = 25)
+km_res_3 <- kmeans(x = topGenes, centers = 3, iter.max = 10, nstart = 25)
 
 # Visualize clusters
 fviz_cluster(km_res_2, topGenes, geom = ("point"))
@@ -85,6 +85,7 @@ km_res_top10k <- kmeans(x = topGenes10k_df, centers = 2, iter.max = 10, nstart =
 
 # Alluvial diagram
 km_alluvial_df <- as.data.frame(km_res_top10$cluster)
+
 km_alluvial_df <- cbind(km_alluvial_df,
                      as.data.frame(km_res_top100$cluster),
                      as.data.frame(km_res_top1000$cluster),
@@ -142,8 +143,8 @@ distance <- dist(topGenes_df_test, method = "euclidean")
 hc_res_top10  <- hclust(distance, method = "complete")
 
 plot(hc_res_top10, cex = 0.6, hang = -1)
-hc.cut <- cutree(hc_res_top10, k = 2)
-fviz_cluster(list(data = topGenes, cluster = hc.cut), geom = ("point"))
+hc.cut10 <- cutree(hc_res_top10, k = 2)
+fviz_cluster(list(data = topGenes, cluster = hc.cut10), geom = ("point"))
 
 # Top 100 genes
 topGenes_df_test <- as.data.frame(topGenes_df[,1:100])
@@ -151,8 +152,8 @@ distance <- dist(topGenes_df_test, method = "euclidean")
 hc_res_top100  <- hclust(distance, method = "complete")
 
 plot(hc_res_top100, cex = 0.6, hang = -1)
-hc.cut <- cutree(hc_res_top100, k = 2)
-fviz_cluster(list(data = topGenes, cluster = hc.cut), geom = ("point"))
+hc.cut100 <- cutree(hc_res_top100, k = 2)
+fviz_cluster(list(data = topGenes, cluster = hc.cut100), geom = ("point"))
 
 # Top 1000 genes
 topGenes_df_test <- as.data.frame(topGenes_df[,1:1000])
@@ -160,16 +161,42 @@ distance <- dist(topGenes_df_test, method = "euclidean")
 hc_res_top1000  <- hclust(distance, method = "complete")
 
 plot(hc_res_top1000, cex = 0.6, hang = -1)
-hc.cut <- cutree(hc_res_top1000, k = 2)
-fviz_cluster(list(data = topGenes, cluster = hc.cut), geom = ("point"))
+hc.cut1000 <- cutree(hc_res_top1000, k = 2)
+fviz_cluster(list(data = topGenes, cluster = hc.cut1000), geom = ("point"))
 
 # Top 10k genes
 distance <- dist(topGenes10k_df, method = "euclidean")
-hc_res_top10000  <- hclust(distance, method = "complete")
+hc_res_top10k  <- hclust(distance, method = "complete")
 
-plot(hc_res_top10000, cex = 0.6, hang = -1)
-hc.cut <- cutree(hc_res_top10000, k = 2)
-fviz_cluster(list(data = topGenes, cluster = hc.cut), geom = ("point"))
+plot(hc_res_top10k, cex = 0.6, hang = -1)
+hc.cut10k <- cutree(hc_res_top10k, k = 2)
+fviz_cluster(list(data = topGenes, cluster = hc.cut10k), geom = ("point"))
+
+# Alluvial diagram
+hc_alluvial_df <- as.data.frame(hc.cut10)
+hc_alluvial_df <- cbind(hc_alluvial_df,
+                     as.data.frame(hc.cut100),
+                     as.data.frame(hc.cut1000),
+                     as.data.frame(hc.cut10k),
+                     metadata$refinebio_specimen_part)
+colnames(hc_alluvial_df) <- c("ten_genes", "hun_genes", "thou_genes", "tenthou_genes", "brain_part")
+
+# Put into alluvial format
+hc_alluvial_df <- hc_alluvial_df %>%
+                  group_by(ten_genes, hun_genes, thou_genes, tenthou_genes, brain_part) %>%
+                  summarise(freq = n())
+
+# Plot alluvial diagram
+ggplot(hc_alluvial_df,
+       aes(y = freq, axis1 = ten_genes, axis2 = hun_genes, axis3 = thou_genes, axis4 = tenthou_genes)) +
+  geom_alluvium(aes(fill = brain_part), width = 1/12) +
+  geom_stratum(width = 1/8, fill = "black", color = "grey") +
+  geom_label(stat = "stratum", aes(label = after_stat(stratum))) +
+  scale_x_discrete(limits = c("10 genes", "100 genes", "1000 genes", "10k genes"), expand = c(.02, .02)) +
+  ylab("Frequency") +
+  guides(fill = guide_legend(title = "Brain part")) +
+  scale_fill_brewer(type = "qual", palette = "Set1") +
+  ggtitle("Clustering setups and cluster membership")
 ```
 
 ##PAM Clustering
@@ -228,41 +255,7 @@ ggplot(cluster_data, aes(axis1 = Original, axis2 = PAM_2, y = after_stat(stratum
 
 ## Heatmaps & dendrograms
 ```{r}
-# K-menas
-
-
-# Hierarchical Clustering
-# List of differentially expressed genes
-
-mat.z <- t(apply(topGenes_df, 1, scale))
-colnames(mat.z) <- colnames(topGenes_df)
-
-h <-Heatmap(mat.z, cluster_rows = TRUE, cluster_columns = TRUE, column_labels = colnames(mat.z), name = "Z-score", row_labels = rownames(topGenes_df))
-png(filename = "results/test.png", res = 250, width = 1000, height = 2000)
-print(h)
-dev.off()
-
-```
-filtered_deseq_df <- deseq_df %>% 
-  filter(abs(log2FoldChange) > 1 & padj < 0.05)
-
-heatmap_filtered_deseq_df <- filtered_deseq_df[(filtered_deseq_df$baseMean > 10) & (abs(filtered_deseq_df$log2FoldChange) > 1.5),]
-
-heatmap_filtered_deseq_df <- heatmap_filtered_deseq_df %>%
-  inner_join(collapsed_mapping_df, by = c("Gene" = "ensembl_gene_id"))
-mat <- counts(deseq, normalized = T)[heatmap_filtered_deseq_df$Gene,]
-
-mat.z <- t(apply(mat, 1, scale))
-colnames(mat.z) <- colnames(mat)
-
-heatmap_filtered_deseq_df <- heatmap_filtered_deseq_df %>%
-  tibble::column_to_rownames("Gene")
-
-h <- Heatmap(mat.z, cluster_rows = TRUE, cluster_columns = TRUE, column_labels = colnames(mat.z), name = "Z-score", row_labels = heatmap_filtered_deseq_df[rownames(mat.z),]$all_symbols)
-
-png(filename = "results/SRP040561_heatmap.png", res = 250, width = 1000, height = 2000)
-print(h)
-dev.off()
+# Need all clustering methods done
 
 # Heatmap outline
 # K means | hclust | PAM |
