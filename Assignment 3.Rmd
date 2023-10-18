@@ -314,5 +314,15 @@ hc_10k <- chisq.test(metadata$refinebio_specimen_part, hc.cut10k)
 hc_p_adj <- p.adjust(hc_10k$p.value, method = "bonferroni")
 
 # PAM
+pm <- chisq.test(metadata$refinebio_specimen_part, pam_res_1$cluster)
+pam_p_adj <- p.adjust(pm$p.value, method = "bonferroni")
+pam_top10 <- chisq.test(metadata$refinebio_specimen_part, pam_res_top10$cluster)
+pam_p_adj <- p.adjust(pam_top10$p.value, method = "bonferroni")
+pam_top100 <- chisq.test(metadata$refinebio_specimen_part, pam_res_top100$cluster)
+pam_p_adj <- p.adjust(pam_top100$p.value, method = "bonferroni")
+pam_top1000 <- chisq.test(metadata$refinebio_specimen_part, pam_res_top1000$cluster)
+pam_p_adj <- p.adjust(pam_top1000$p.value, method = "bonferroni")
+pam_top10k <- chisq.test(metadata$refinebio_specimen_part, pam_res_top10k$cluster)
+pam_p_adj <- p.adjust(pam_top10k$p.value, method = "bonferroni")
 
 ```
