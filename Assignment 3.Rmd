@@ -316,5 +316,33 @@ heatmap <- Heatmap(topGenes_hm,
 
 ## Statistics
 ```{r}
-# Need all clustering methods done
+# Brain part membership, 1 is hippocampus, 2 is cortex
+brain_mapping <- metadata %>%
+  select(refinebio_accession_code, refinebio_specimen_part)
+brain_mapping$refinebio_specimen_part[brain_mapping$refinebio_specimen_part == "hippocampus"] <- 1
+brain_mapping$refinebio_specimen_part[brain_mapping$refinebio_specimen_part == "cortex"] <- 2
+
+# K-Means
+
+
+
+# Hierarchical Clustering
+
+# Cluster membership, 5000 genes & k=2
+hc_clusters <- data.frame(refinebio_accession_code  = names(hc.cut[which(hc.cut[]==1)]), cluster_group = 1)
+hc_clusters_cluster2 <- data.frame(refinebio_accession_code  = names(hc.cut[which(hc.cut[]==2)]), cluster_group = 2)
+hc_clusters <- rbind(hc_clusters, hc_clusters_cluster2)
+
+# Data frame
+hc_chi_df <- hc_clusters %>%
+  merge(brain_mapping, by = c("refinebio_accession_code" = "refinebio_accession_code")) %>%
+  column_to_rownames("refinebio_accession_code")
+
+# Chi-squared test
+chisq <- chisq.test(hc_chi_df$refinebio_specimen_part, hc_chi_df$cluster_group)
+p_adj <- p.adjust(chisq$p.value,method="bonferroni")
+
+
+# PAM Clustering
+
 ```
