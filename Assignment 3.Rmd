@@ -6,10 +6,10 @@ library(magrittr)
 library(readr)
 library(dplyr)
 library(tidyr)
+library(ComplexHeatmap)
 library(factoextra)
 library(matrixStats)
 library(ggalluvial)
-library(ComplexHeatmap)
 ```
 
 ## Get 5000 most variable genes
@@ -36,7 +36,7 @@ saveRDS(topGenes10k, "topGenes10k.RDS")
 ```
 
 ## Read in data
-```{r, message=FALSE}
+```{r}
 topGenes <- readRDS("topGenes.RDS")
 topGenes10k <- readRDS("topGenes10k.RDS")
 
@@ -199,7 +199,7 @@ ggplot(hc_alluvial_df,
   ggtitle("Clustering setups and cluster membership")
 ```
 
-## PAM Clustering
+##PAM Clustering
 ```{r}
 library(cluster)
 
@@ -254,7 +254,7 @@ ggplot(cluster_data, aes(axis1 = Original, axis2 = PAM_2, y = after_stat(stratum
 ```
 
 ## Heatmaps & dendrograms
-```{r, message=FALSE}
+```{r}
 # Prepare expression data
 topGenes_hm <- t(topGenes)
 topGenes_hm <- log2(topGenes_hm)
