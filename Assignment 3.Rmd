@@ -267,7 +267,6 @@ topGenes_hm <- t(topGenes)
 topGenes_hm <- log2(topGenes_hm)
 topGenes_hm[topGenes_hm == -Inf] <- 0
 
-
 # K-means clustering + hierarchical clustering
 
 # Prepare annotation data
