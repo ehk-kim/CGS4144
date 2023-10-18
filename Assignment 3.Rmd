@@ -284,6 +284,32 @@ heatmap <- Heatmap(topGenes_hm,
                    show_column_names = FALSE,
                    top_annotation = sample_annot)
 
+
+# # Prepare annotation data with PAM clustering results
+# annot_df <- as.data.frame(cbind(metadata$refinebio_specimen_part,
+#                                 pam_res_2$clustering,  # Replace with PAM clustering results
+#                                 hc.cut))
+# 
+# colnames(annot_df) <- c("Brain_part", "PAM_cluster", "Hier_cluster")  # Change the annotation label for PAM clustering
+# 
+# # Colors were taken from https://davidmathlogic.com/colorblind/
+# sample_annot <- HeatmapAnnotation(df = annot_df,
+#                                   col = list(Brain_part = c("cortex" = "#E1BE6A", "hippocampus" = "#40B0A6"),
+#                                              PAM_cluster = c("1" = "#1A85FF", "2" = "#D41159"),  # Update with PAM cluster colors
+#                                              Hier_cluster = c("1" = "#005AB5", "2" = "#DC3220")),
+#                                   annotation_label = c("Brain part", "PAM cluster", "Hierarchical cluster"))  # Update the annotation label
+# 
+# heatmap <- Heatmap(topGenes_hm,
+#                    name = "Log-normalized counts",
+#                    row_title = "Genes",
+#                    column_title = "Samples",
+#                    show_row_names = FALSE,
+#                    show_column_names = FALSE,
+#                    top_annotation = sample_annot)
+# 
+# heatmap
+
+
 heatmap
 ```
 
