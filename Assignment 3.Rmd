@@ -267,19 +267,25 @@ topGenes_hm <- t(topGenes)
 topGenes_hm <- log2(topGenes_hm)
 topGenes_hm[topGenes_hm == -Inf] <- 0
 
+<<<<<<< HEAD
 # K-means clustering
+=======
+# K-means clustering + hierarchical clustering
+>>>>>>> ek_A3
 
 # Prepare annotation data
 annot_df <- as.data.frame(cbind(metadata$refinebio_specimen_part,
-                                km_res_2$cluster))
+                                km_res_2$cluster,
+                                hc.cut))
 
-colnames(annot_df) <- c("Brain_part", "Kmean_cluster")
+colnames(annot_df) <- c("Brain_part", "Kmean_cluster", "Hier_cluster")
 
 # Colors were taken from https://davidmathlogic.com/colorblind/
 sample_annot <- HeatmapAnnotation(df = annot_df,
                                   col = list(Brain_part = c("cortex" = "#E1BE6A", "hippocampus" = "#40B0A6"),
-                                             Kmean_cluster = c("1" = "#1A85FF", "2" = "#D41159")),
-                                  annotation_label = c("Brain part", "K-mean cluster"))
+                                             Kmean_cluster = c("1" = "#1A85FF", "2" = "#D41159"),
+                                             Hier_cluster = c("1" = "#005AB5", "2" = "#DC3220")),
+                                  annotation_label = c("Brain part", "K-mean cluster", "Hierarchical cluster"))
 
 heatmap <- Heatmap(topGenes_hm,
                    name = "Log-normalized counts",
@@ -289,6 +295,7 @@ heatmap <- Heatmap(topGenes_hm,
                    show_column_names = FALSE,
                    top_annotation = sample_annot)
 
+<<<<<<< HEAD
 
 
 # Hierarchical Clustering
@@ -312,10 +319,14 @@ heatmap <- Heatmap(topGenes_hm,
                    show_row_names = FALSE,
                    show_column_names = FALSE,
                    top_annotation = sample_annot_hc)
+=======
+heatmap
+>>>>>>> ek_A3
 ```
 
 ## Statistics
 ```{r}
+<<<<<<< HEAD
 # Brain part membership, 1 is hippocampus, 2 is cortex
 brain_mapping <- metadata %>%
   select(refinebio_accession_code, refinebio_specimen_part)
@@ -345,4 +356,21 @@ p_adj <- p.adjust(chisq$p.value,method="bonferroni")
 
 # PAM Clustering
 
+=======
+# K-means
+km <- chisq.test(metadata$refinebio_specimen_part, km_res_2$cluster)
+km_p_adj <- p.adjust(km$p.value, method = "bonferroni")
+km_ten <- chisq.test(metadata$refinebio_specimen_part, km_res_top10$cluster)
+km_p_adj <- p.adjust(km_ten$p.value, method = "bonferroni")
+km_hun <- chisq.test(metadata$refinebio_specimen_part, km_res_top100$cluster)
+km_p_adj <- p.adjust(km_hun$p.value, method = "bonferroni")
+km_thou <- chisq.test(metadata$refinebio_specimen_part, km_res_top1000$cluster)
+km_p_adj <- p.adjust(km_thou$p.value, method = "bonferroni")
+km_10k <- chisq.test(metadata$refinebio_specimen_part, km_res_top10k$cluster)
+km_p_adj <- p.adjust(km_10k$p.value, method = "bonferroni")
+
+# Hierarchical clustering
+
+# PAM
+>>>>>>> ek_A3
 ```
