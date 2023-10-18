@@ -119,6 +119,7 @@ fviz_nbclust(x = topGenes, FUNcluster = hcut, method="wss")
 
 distance <- dist(topGenes_df, method = "euclidean")
 hc_res  <- hclust(distance, method = "complete")
+hc.cut <- cutree(hc_res, k = 2)
 
 # 1 cluster
 hc_res_1 <- cutree(hc_res, k = 1)
@@ -254,13 +255,64 @@ ggplot(cluster_data, aes(axis1 = Original, axis2 = PAM_2, y = after_stat(stratum
 
 ## Heatmaps & dendrograms
 ```{r}
-# Need all clustering methods done
+# Prepare expression data
+topGenes_hm <- t(topGenes)
+topGenes_hm <- log2(topGenes_hm)
+topGenes_hm[topGenes_hm == -Inf] <- 0
 
-# Heatmap outline
-# K means | hclust | PAM |
+# K-means clustering + hierarchical clustering
+
+# Prepare annotation data
+annot_df <- as.data.frame(cbind(metadata$refinebio_specimen_part,
+                                km_res_2$cluster,
+                                hc.cut))
+
+colnames(annot_df) <- c("Brain_part", "Kmean_cluster", "Hier_cluster")
+
+# Colors were taken from https://davidmathlogic.com/colorblind/
+sample_annot <- HeatmapAnnotation(df = annot_df,
+                                  col = list(Brain_part = c("cortex" = "#E1BE6A", "hippocampus" = "#40B0A6"),
+                                             Kmean_cluster = c("1" = "#1A85FF", "2" = "#D41159"),
+                                             Hier_cluster = c("1" = "#005AB5", "2" = "#DC3220")),
+                                  annotation_label = c("Brain part", "K-mean cluster", "Hierarchical cluster"))
+
+heatmap <- Heatmap(topGenes_hm,
+                   name = "Log-normalized counts",
+                   row_title = "Genes",
+                   column_title = "Samples",
+                   show_row_names = FALSE,
+                   show_column_names = FALSE,
+                   top_annotation = sample_annot)
+
+heatmap
 ```
 
 ## Statistics
 ```{r}
-# Need all clustering methods done
+# K-means
+km <- chisq.test(metadata$refinebio_specimen_part, km_res_2$cluster)
+km_p_adj <- p.adjust(km$p.value, method = "bonferroni")
+km_ten <- chisq.test(metadata$refinebio_specimen_part, km_res_top10$cluster)
+km_p_adj <- p.adjust(km_ten$p.value, method = "bonferroni")
+km_hun <- chisq.test(metadata$refinebio_specimen_part, km_res_top100$cluster)
+km_p_adj <- p.adjust(km_hun$p.value, method = "bonferroni")
+km_thou <- chisq.test(metadata$refinebio_specimen_part, km_res_top1000$cluster)
+km_p_adj <- p.adjust(km_thou$p.value, method = "bonferroni")
+km_10k <- chisq.test(metadata$refinebio_specimen_part, km_res_top10k$cluster)
+km_p_adj <- p.adjust(km_10k$p.value, method = "bonferroni")
+
+# Hierarchical clustering
+hc <- chisq.test(metadata$refinebio_specimen_part, hc.cut)
+hc_p_adj <- p.adjust(hc$p.value, method = "bonferroni")
+hc_ten <- chisq.test(metadata$refinebio_specimen_part, hc.cut10)
+hc_p_adj <- p.adjust(hc_ten$p.value, method = "bonferroni")
+hc_hun <- chisq.test(metadata$refinebio_specimen_part, hc.cut100)
+hc_p_adj <- p.adjust(hc_hun$p.value, method = "bonferroni")
+hc_thou <- chisq.test(metadata$refinebio_specimen_part, hc.cut1000)
+hc_p_adj <- p.adjust(hc_thou$p.value, method = "bonferroni")
+hc_10k <- chisq.test(metadata$refinebio_specimen_part, hc.cut10k)
+hc_p_adj <- p.adjust(hc_10k$p.value, method = "bonferroni")
+
+# PAM
+
 ```
