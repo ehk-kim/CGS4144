@@ -6,10 +6,10 @@ library(magrittr)
 library(readr)
 library(dplyr)
 library(tidyr)
+library(ComplexHeatmap)
 library(factoextra)
 library(matrixStats)
 library(ggalluvial)
-library(ComplexHeatmap)
 ```
 
 ## Get 5000 most variable genes
@@ -36,7 +36,7 @@ saveRDS(topGenes10k, "topGenes10k.RDS")
 ```
 
 ## Read in data
-```{r, message=FALSE}
+```{r}
 topGenes <- readRDS("topGenes.RDS")
 topGenes10k <- readRDS("topGenes10k.RDS")
 
@@ -119,19 +119,15 @@ fviz_nbclust(x = topGenes, FUNcluster = hcut, method="wss")
 
 distance <- dist(topGenes_df, method = "euclidean")
 hc_res  <- hclust(distance, method = "complete")
-hc.cut <- cutree(hc_res, k = 2)
 
 # 1 cluster
 hc_res_1 <- cutree(hc_res, k = 1)
-table(hc_res_1)
 
 # 2 clusters | This is the ideal number
 hc_res_2 <- cutree(hc_res, k = 2)
-table(hc_res_2)
 
 # 3 clusters 
 hc_res_3 <- cutree(hc_res, k = 3)
-table(hc_res_3)
 
 # Visualize dendrogram
 h <- plot(hc_res, cex = 0.6, hang = -1)
@@ -147,7 +143,6 @@ hc_res_top10  <- hclust(distance, method = "complete")
 
 plot(hc_res_top10, cex = 0.6, hang = -1)
 hc.cut10 <- cutree(hc_res_top10, k = 2)
-table(hc.cut10)
 fviz_cluster(list(data = topGenes, cluster = hc.cut10), geom = ("point"))
 
 # Top 100 genes
@@ -157,7 +152,6 @@ hc_res_top100  <- hclust(distance, method = "complete")
 
 plot(hc_res_top100, cex = 0.6, hang = -1)
 hc.cut100 <- cutree(hc_res_top100, k = 2)
-table(hc.cut100)
 fviz_cluster(list(data = topGenes, cluster = hc.cut100), geom = ("point"))
 
 # Top 1000 genes
@@ -167,7 +161,6 @@ hc_res_top1000  <- hclust(distance, method = "complete")
 
 plot(hc_res_top1000, cex = 0.6, hang = -1)
 hc.cut1000 <- cutree(hc_res_top1000, k = 2)
-table(hc.cut1000)
 fviz_cluster(list(data = topGenes, cluster = hc.cut1000), geom = ("point"))
 
 # Top 10k genes
@@ -176,7 +169,6 @@ hc_res_top10k  <- hclust(distance, method = "complete")
 
 plot(hc_res_top10k, cex = 0.6, hang = -1)
 hc.cut10k <- cutree(hc_res_top10k, k = 2)
-table(hc.cut10k)
 fviz_cluster(list(data = topGenes, cluster = hc.cut10k), geom = ("point"))
 
 # Alluvial diagram
@@ -206,7 +198,7 @@ ggplot(hc_alluvial_df,
   ggtitle("Clustering setups and cluster membership")
 ```
 
-## PAM Clustering
+##PAM Clustering
 ```{r}
 library(cluster)
 
@@ -261,87 +253,14 @@ ggplot(cluster_data, aes(axis1 = Original, axis2 = PAM_2, y = after_stat(stratum
 ```
 
 ## Heatmaps & dendrograms
-```{r, message=FALSE}
-# Prepare expression data
-topGenes_hm <- t(topGenes)
-topGenes_hm <- log2(topGenes_hm)
-topGenes_hm[topGenes_hm == -Inf] <- 0
+```{r}
+# Need all clustering methods done
 
-
-# K-means clustering
-
-# Prepare annotation data
-annot_df <- as.data.frame(cbind(metadata$refinebio_specimen_part,
-                                km_res_2$cluster,
-                                hc.cut))
-
-colnames(annot_df) <- c("Brain_part", "Kmean_cluster", "Hier_cluster")
-
-# Colors were taken from https://davidmathlogic.com/colorblind/
-sample_annot <- HeatmapAnnotation(df = annot_df,
-                                  col = list(Brain_part = c("cortex" = "#E1BE6A", "hippocampus" = "#40B0A6"),
-                                             Kmean_cluster = c("1" = "#1A85FF", "2" = "#D41159"),
-                                             Hier_cluster = c("1" = "#005AB5", "2" = "#DC3220")),
-                                  annotation_label = c("Brain part", "K-mean cluster", "Hierarchical cluster"))
-
-heatmap <- Heatmap(topGenes_hm,
-                   name = "Log-normalized counts",
-                   row_title = "Genes",
-                   column_title = "Samples",
-                   show_row_names = FALSE,
-                   show_column_names = FALSE,
-                   top_annotation = sample_annot)
-
-
-# Hierarchical Clustering
-
-# Prepare annotation data
-annot_df_hc <- as.data.frame(cbind(metadata$refinebio_specimen_part,
-                                hc.cut))
-
-colnames(annot_df_hc) <- c("Brain_part", "Kmean_cluster")
-
-# Colors were taken from https://davidmathlogic.com/colorblind/
-sample_annot_hc <- HeatmapAnnotation(df = annot_df_hc,
-                                  col = list(Brain_part = c("cortex" = "#E1BE6A", "hippocampus" = "#40B0A6"),
-                                             Hier_cluster = c("1" = "#1A85FF", "2" = "#D41159")),
-                                  annotation_label = c("Brain part", "Hierarchical cluster"))
-
-heatmap <- Heatmap(topGenes_hm,
-                   name = "Log-normalized counts",
-                   row_title = "Genes",
-                   column_title = "Samples",
-                   show_row_names = FALSE,
-                   show_column_names = FALSE,
-                   top_annotation = sample_annot_hc)
+# Heatmap outline
+# K means | hclust | PAM |
 ```
 
 ## Statistics
 ```{r}
-# K-means
-km <- chisq.test(metadata$refinebio_specimen_part, km_res_2$cluster)
-km_p_adj <- p.adjust(km$p.value, method = "bonferroni")
-km_ten <- chisq.test(metadata$refinebio_specimen_part, km_res_top10$cluster)
-km_p_adj <- p.adjust(km_ten$p.value, method = "bonferroni")
-km_hun <- chisq.test(metadata$refinebio_specimen_part, km_res_top100$cluster)
-km_p_adj <- p.adjust(km_hun$p.value, method = "bonferroni")
-km_thou <- chisq.test(metadata$refinebio_specimen_part, km_res_top1000$cluster)
-km_p_adj <- p.adjust(km_thou$p.value, method = "bonferroni")
-km_10k <- chisq.test(metadata$refinebio_specimen_part, km_res_top10k$cluster)
-km_p_adj <- p.adjust(km_10k$p.value, method = "bonferroni")
-
-# Hierarchical clustering
-hc <- chisq.test(metadata$refinebio_specimen_part, hc.cut)
-hc_p_adj <- p.adjust(hc$p.value, method = "bonferroni")
-hc_ten <- chisq.test(metadata$refinebio_specimen_part, hc.cut10)
-hc_p_adj <- p.adjust(hc_ten$p.value, method = "bonferroni")
-hc_hun <- chisq.test(metadata$refinebio_specimen_part, hc.cut100)
-hc_p_adj <- p.adjust(hc_hun$p.value, method = "bonferroni")
-hc_thou <- chisq.test(metadata$refinebio_specimen_part, hc.cut1000)
-hc_p_adj <- p.adjust(hc_thou$p.value, method = "bonferroni")
-hc_10k <- chisq.test(metadata$refinebio_specimen_part, hc.cut10k)
-hc_p_adj <- p.adjust(hc_10k$p.value, method = "bonferroni")
-
-# PAM
-
+# Need all clustering methods done
 ```
