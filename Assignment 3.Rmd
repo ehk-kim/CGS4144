@@ -233,11 +233,8 @@ topGenes_hm <- t(topGenes)
 topGenes_hm <- log2(topGenes_hm)
 topGenes_hm[topGenes_hm == -Inf] <- 0
 
-<<<<<<< Updated upstream
-=======
 # K-means clustering + hierarchical clustering
 
->>>>>>> Stashed changes
 # Prepare annotation data
 annot_df <- as.data.frame(cbind(metadata$refinebio_specimen_part,
                                 km_res_2$cluster,
@@ -259,14 +256,25 @@ heatmap <- Heatmap(topGenes_hm,
                    show_row_names = FALSE,
                    show_column_names = FALSE,
                    top_annotation = sample_annot)
-<<<<<<< Updated upstream
-=======
 
 heatmap
->>>>>>> Stashed changes
 ```
 
 ## Statistics
 ```{r}
-# Do per clustering method
+# K-means
+km <- chisq.test(metadata$refinebio_specimen_part, km_res_2$cluster)
+km_p_adj <- p.adjust(km$p.value, method = "bonferroni")
+km_ten <- chisq.test(metadata$refinebio_specimen_part, km_res_top10$cluster)
+km_p_adj <- p.adjust(km_ten$p.value, method = "bonferroni")
+km_hun <- chisq.test(metadata$refinebio_specimen_part, km_res_top100$cluster)
+km_p_adj <- p.adjust(km_hun$p.value, method = "bonferroni")
+km_thou <- chisq.test(metadata$refinebio_specimen_part, km_res_top1000$cluster)
+km_p_adj <- p.adjust(km_thou$p.value, method = "bonferroni")
+km_10k <- chisq.test(metadata$refinebio_specimen_part, km_res_top10k$cluster)
+km_p_adj <- p.adjust(km_10k$p.value, method = "bonferroni")
+
+# Hierarchical clustering
+
+# PAM
 ```
