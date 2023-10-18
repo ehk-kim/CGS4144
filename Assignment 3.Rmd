@@ -268,7 +268,7 @@ topGenes_hm <- log2(topGenes_hm)
 topGenes_hm[topGenes_hm == -Inf] <- 0
 
 
-# K-means clustering
+# K-means clustering + hierarchical clustering
 
 # Prepare annotation data
 annot_df <- as.data.frame(cbind(metadata$refinebio_specimen_part,
@@ -292,28 +292,7 @@ heatmap <- Heatmap(topGenes_hm,
                    show_column_names = FALSE,
                    top_annotation = sample_annot)
 
-
-# Hierarchical Clustering
-
-# Prepare annotation data
-annot_df_hc <- as.data.frame(cbind(metadata$refinebio_specimen_part,
-                                hc.cut))
-
-colnames(annot_df_hc) <- c("Brain_part", "Kmean_cluster")
-
-# Colors were taken from https://davidmathlogic.com/colorblind/
-sample_annot_hc <- HeatmapAnnotation(df = annot_df_hc,
-                                  col = list(Brain_part = c("cortex" = "#E1BE6A", "hippocampus" = "#40B0A6"),
-                                             Hier_cluster = c("1" = "#1A85FF", "2" = "#D41159")),
-                                  annotation_label = c("Brain part", "Hierarchical cluster"))
-
-heatmap <- Heatmap(topGenes_hm,
-                   name = "Log-normalized counts",
-                   row_title = "Genes",
-                   column_title = "Samples",
-                   show_row_names = FALSE,
-                   show_column_names = FALSE,
-                   top_annotation = sample_annot_hc)
+heatmap
 ```
 
 ## Statistics
