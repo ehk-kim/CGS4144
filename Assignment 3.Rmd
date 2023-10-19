@@ -218,7 +218,7 @@ pam_res_2 <- pam(x = topGenes, k = 2)
 pam_res_3 <- pam(x = topGenes, k = 3)
 
 # Visualize clusters
-fviz_cluster(pam_res_4, data = topGenes, geom = "point")
+fviz_cluster(pam_res_3, data = topGenes, geom = "point")
 
 # Top 10 genes
 topGenes_df_test <- as.data.frame(topGenes_df[,1:10])
@@ -235,21 +235,34 @@ pam_res_top1000 <- pam(x = topGenes_df_test, k = 2)
 # Top 10k genes
 pam_res_top10k <- pam(x = topGenes10k_df, k = 2)
 
-cluster_data <- data.frame(
-  "Original" = km_res_4$cluster,
-  "PAM_2" = pam_res_2$clustering,
-  "PAM_3" = pam_res_3$clustering,
-)
+# Alluvial diagram for PAM Clustering Results
+pam_alluvial_df <- as.data.frame(pam_res_1$clustering)
+pam_alluvial_df <- cbind(pam_alluvial_df,
+                     as.data.frame(pam_res_2$clustering),
+                     as.data.frame(pam_res_3$clustering),
+                     as.data.frame(pam_res_top10$clustering),
+                     as.data.frame(pam_res_top100$clustering),
+                     as.data.frame(pam_res_top1000$clustering),
+                     as.data.frame(pam_res_top10k$clustering),
+                     metadata$refinebio_specimen_part)
+colnames(pam_alluvial_df) <- c("1_cluster", "2_clusters", "3_clusters", "10_genes", "100_genes", "1000_genes", "10k_genes", "brain_part")
 
-ggplot(cluster_data, aes(axis1 = Original, axis2 = PAM_2, y = after_stat(stratum))) +
-  geom_alluvium(aes(fill = as.factor(Original))) +
-  geom_stratum(aes(fill = as.factor(PAM_2))) +
-  scale_x_discrete(limits = c("Original", "PAM_2", "PAM_3")) +
-  scale_fill_manual(values = c("orange", "pink")) +
-  theme_void() +
-  labs(title = "Alluvial Diagram (how different clustering setups changed cluster memberships):",
-       x = "Clustering Setup",
-       y = "Sample ID")
+# Put into alluvial format
+pam_alluvial_df <- pam_alluvial_df %>%
+                  group_by(`1_cluster`, `2_clusters`, `3_clusters`, `10_genes`, `100_genes`, `1000_genes`, `10k_genes`, `brain_part`) %>%
+                  summarise(freq = n())
+
+# Plot alluvial diagram
+ggplot(pam_alluvial_df,
+       aes(y = freq, axis1 = `1_cluster`, axis2 = `2_clusters`, axis3 = `3_clusters`, axis4 = `10_genes`, axis5 = `100_genes`, axis6 = `1000_genes`, axis7 = `10k_genes`)) +
+  geom_alluvium(aes(fill = brain_part), width = 1/12) +
+  geom_stratum(width = 1/8, fill = "black", color = "grey") +
+  geom_label(stat = "stratum", aes(label = after_stat(stratum))) +
+  scale_x_discrete(limits = c("1 cluster", "2 clusters", "3 clusters", "10 genes", "100 genes", "1000 genes", "10k genes"), expand = c(.02, .02)) +
+  ylab("Frequency") +
+  guides(fill = guide_legend(title = "Brain part")) +
+  scale_fill_brewer(type = "qual", palette = "Set1") +
+  ggtitle("PAM Clustering Setups and Cluster Membership")
 
 ```
 
@@ -340,7 +353,7 @@ hc_10k <- chisq.test(metadata$refinebio_specimen_part, hc.cut10k)
 hc_p_adj <- p.adjust(hc_10k$p.value, method = "bonferroni")
 
 # PAM
-pm <- chisq.test(metadata$refinebio_specimen_part, pam_res_1$cluster)
+pm <- chisq.test(metadata$refinebio_specimen_part, pam_res_2$cluster)
 pam_p_adj <- p.adjust(pm$p.value, method = "bonferroni")
 pam_top10 <- chisq.test(metadata$refinebio_specimen_part, pam_res_top10$cluster)
 pam_p_adj <- p.adjust(pam_top10$p.value, method = "bonferroni")
