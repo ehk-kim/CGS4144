@@ -235,30 +235,25 @@ pam_res_top1000 <- pam(x = topGenes_df_test, k = 2)
 # Top 10k genes
 pam_res_top10k <- pam(x = topGenes10k_df, k = 2)
 
-# Alluvial diagram for PAM Clustering Results
-pam_alluvial_df <- as.data.frame(pam_res_1$clustering)
+pam_alluvial_df <- as.data.frame(pam_res_top10$clustering)
 pam_alluvial_df <- cbind(pam_alluvial_df,
-                     as.data.frame(pam_res_2$clustering), 
-                     as.data.frame(pam_res_3$clustering),
-                     as.data.frame(pam_res_top10$clustering),
-                     as.data.frame(pam_res_top100$clustering),
-                     as.data.frame(pam_res_top1000$clustering),
-                     as.data.frame(pam_res_top10k$clustering),
-                     metadata$refinebio_specimen_part)
-colnames(pam_alluvial_df) <- c("1_cluster", "2_clusters", "3_clusters", "10_genes", "100_genes", "1000_genes", "10k_genes", "brain_part")
+                         as.data.frame(pam_res_top100$clustering),
+                         as.data.frame(pam_res_top1000$clustering),
+                         as.data.frame(pam_res_top10k$clustering),
+                         metadata$refinebio_specimen_part)
 
-# Put into alluvial format
+colnames(pam_alluvial_df) <- c("10 genes", "100 genes", "1000 genes", "10k genes", "brain_part")
+
 pam_alluvial_df <- pam_alluvial_df %>%
-                  group_by(`1_cluster`, `2_clusters`, `3_clusters`, `10_genes`, `100_genes`, `1000_genes`, `10k_genes`, `brain_part`) %>%
+                  group_by(`10 genes`, `100 genes`, `1000 genes`, `10k genes`, `brain_part`) %>%
                   summarise(freq = n())
 
-# Plot alluvial diagram
 ggplot(pam_alluvial_df,
-       aes(y = freq, axis1 = `1_cluster`, axis2 = `2_clusters`, axis3 = `3_clusters`, axis4 = `10_genes`, axis5 = `100_genes`, axis6 = `1000_genes`, axis7 = `10k_genes`)) +
+       aes(y = freq, axis1 = `10 genes`, axis2 = `100 genes`, axis3 = `1000 genes`, axis4 = `10k genes`)) +
   geom_alluvium(aes(fill = brain_part), width = 1/12) +
   geom_stratum(width = 1/8, fill = "black", color = "grey") +
   geom_label(stat = "stratum", aes(label = after_stat(stratum))) +
-  scale_x_discrete(limits = c("1 cluster", "2 clusters", "3 clusters", "10 genes", "100 genes", "1000 genes", "10k genes"), expand = c(.02, .02)) +
+  scale_x_discrete(limits = c("10 genes", "100 genes", "1000 genes", "10k genes"), expand = c(.02, .02)) +
   ylab("Frequency") +
   guides(fill = guide_legend(title = "Brain part")) +
   scale_fill_brewer(type = "qual", palette = "Set1") +
