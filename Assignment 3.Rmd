@@ -217,8 +217,8 @@ pam_res_2 <- pam(x = topGenes, k = 2)
 # 3 clusters
 pam_res_3 <- pam(x = topGenes, k = 3)
 
-# Visualize clusters
-fviz_cluster(pam_res_3, data = topGenes, geom = "point")
+# Visualize clusters 
+fviz_cluster(pam_res_2, data = topGenes, geom = "point")
 
 # Top 10 genes
 topGenes_df_test <- as.data.frame(topGenes_df[,1:10])
