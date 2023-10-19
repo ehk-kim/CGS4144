@@ -238,7 +238,7 @@ pam_res_top10k <- pam(x = topGenes10k_df, k = 2)
 # Alluvial diagram for PAM Clustering Results
 pam_alluvial_df <- as.data.frame(pam_res_1$clustering)
 pam_alluvial_df <- cbind(pam_alluvial_df,
-                     as.data.frame(pam_res_2$clustering),
+                     as.data.frame(pam_res_2$clustering), 
                      as.data.frame(pam_res_3$clustering),
                      as.data.frame(pam_res_top10$clustering),
                      as.data.frame(pam_res_top100$clustering),
