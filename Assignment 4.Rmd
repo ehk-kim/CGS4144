@@ -69,7 +69,40 @@ metadata <- read_tsv("SRP119064/metadata_SRP119064.tsv")
 
 ## Naive Bayes - Milan
 ```{r}
+```{r}
+library(e1071)
+library(tidyverse)
+gene_data <- topGenes_df
+gene_data$section <- metadata$refinebio_specimen_part
+```
 
+```{r}
+set.seed(155) 
+train_indices <- sample(1:nrow(gene_data), 0.01*nrow(gene_data))  #1% of the data is training and 99% is testing
+train_genes <- gene_data[train_indices, ]
+test_genes <- gene_data[-train_indices, ]
+```
+
+```{r}
+model <- naiveBayes(section ~ ., data = train_genes)
+```
+
+```{r}
+number <- ncol(test_genes)
+column_name <- test_genes[number]
+test_genes_filtered_df <- test_genes[-number]
+predictions <- predict(model, newdata = test_genes_filtered_df)
+print(predictions)  # (generated from testing data)
+```
+
+test_genes$section[test_genes$section == "cortex"] <- "Cortex_test"
+test_genes$section[test_genes$section == "hippocampus"] <- "Hippocampus_test"
+
+error_matrix = table(test_genes$section, predictions)
+error_matrix
+
+accuracy <- sum(diag(error_matrix)) / sum(error_matrix)
+print(paste("Model Accuracy:", round(accuracy, 2)))
 ```
 
 ## Heatmap
