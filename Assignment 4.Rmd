@@ -69,7 +69,6 @@ metadata <- read_tsv("SRP119064/metadata_SRP119064.tsv")
 
 ## Naive Bayes - Milan
 ```{r}
-```{r}
 library(e1071)
 library(tidyverse)
 gene_data <- topGenes_df
@@ -95,6 +94,7 @@ predictions <- predict(model, newdata = test_genes_filtered_df)
 print(predictions)  # (generated from testing data)
 ```
 
+```{r}
 test_genes$section[test_genes$section == "cortex"] <- "Cortex_test"
 test_genes$section[test_genes$section == "hippocampus"] <- "Hippocampus_test"
 
@@ -113,6 +113,7 @@ print(paste("Model Accuracy:", round(accuracy, 2)))
 topGenes_hm <- t(topGenes)
 topGenes_hm <- log2(topGenes_hm)
 topGenes_hm[topGenes_hm == -Inf] <- 0
+
 
 # Prepare annotation data
 annot_df <- as.data.frame(cbind(metadata$refinebio_specimen_part,
