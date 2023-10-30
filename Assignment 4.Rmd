@@ -1,0 +1,109 @@
+# Assignment 3
+
+## Load all libraries
+```{r, warning=FALSE, message=FALSE}
+library(magrittr)
+library(readr)
+library(dplyr)
+library(tidyr)
+library(ComplexHeatmap)
+library(factoextra)
+```
+
+## Get 5000 most variable genes
+
+This code chunk only needs to be run once to generate the topGenes.RDS file.
+One the RDS object has been generated, skip straight to "Read in data".
+```{r}
+deseq <- readRDS("deseq.RDS")
+deseq_df <- readRDS("deseq_df.RDS")
+collapsed_mapping_df <- readRDS("collapsed_mapping_df.RDS")
+
+deseq_df <- deseq_df %>%
+  inner_join(collapsed_mapping_df, by = c("Gene" = "ensembl_gene_id"))
+mat <- counts(deseq, normalized = T)[deseq_df$Gene,]
+
+topGenesMat <- head(order(rowVars(mat), decreasing = TRUE), 5000)
+topGenes <- mat[topGenesMat,]
+
+topGenesMat <- head(order(rowVars(mat), decreasing = TRUE), 10000)
+topGenes10k <- mat[topGenesMat,]
+
+saveRDS(topGenes, "topGenes.RDS")
+saveRDS(topGenes10k, "topGenes10k.RDS")
+```
+
+## Read in data
+```{r, message=FALSE}
+topGenes <- readRDS("topGenes.RDS")
+topGenes10k <- readRDS("topGenes10k.RDS")
+
+topGenes <- t(topGenes)
+topGenes10k <- t(topGenes10k)
+
+topGenes_df <- as.data.frame(topGenes)
+topGenes10k_df <- as.data.frame(topGenes10k)
+
+metadata <- read_tsv("SRP119064/metadata_SRP119064.tsv")
+```
+
+## Support vector machine - Em
+```{r}
+
+```
+
+## Logistic regression - Annie
+```{r}
+
+```
+
+## Random forest - Alex
+```{r}
+
+```
+
+## K nearest neighbors - Jonathan
+```{r}
+
+```
+
+## Naive Bayes - Milan
+```{r}
+
+```
+
+## Heatmap
+```{r}
+# This chunk is from Assignment 3 - edit as needed for Assignment 4
+
+# Prepare expression data
+topGenes_hm <- t(topGenes)
+topGenes_hm <- log2(topGenes_hm)
+topGenes_hm[topGenes_hm == -Inf] <- 0
+
+# Prepare annotation data
+annot_df <- as.data.frame(cbind(metadata$refinebio_specimen_part,
+                                km_res_2$cluster,
+                                hc.cut,
+                                pam_res_2$clustering))
+
+colnames(annot_df) <- c("Brain_part", "Kmean_cluster", "Hier_cluster", "PAM_cluster")
+
+# Colors were taken from https://davidmathlogic.com/colorblind/
+sample_annot <- HeatmapAnnotation(df = annot_df,
+                                  col = list(Brain_part = c("cortex" = "#E1BE6A", "hippocampus" = "#40B0A6"),
+                                             Kmean_cluster = c("1" = "#1A85FF", "2" = "#D41159"),
+                                             Hier_cluster = c("1" = "#005AB5", "2" = "#DC3220"),
+                                             PAM_cluster = c("1" = "#5D3A9B", "2" = "#E66100")),
+                                  annotation_label = c("Brain part", "K-mean cluster", "Hierarchical cluster", "PAM cluster"))
+
+heatmap <- Heatmap(topGenes_hm,
+                   name = "Log-normalized counts",
+                   row_title = "Genes",
+                   column_title = "Samples",
+                   show_row_names = FALSE,
+                   show_column_names = FALSE,
+                   top_annotation = sample_annot)
+
+heatmap
+```
