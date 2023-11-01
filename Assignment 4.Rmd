@@ -1,0 +1,558 @@
+# Assignment 4
+
+```{r}
+install.packages("pROC")
+```
+
+
+## Load all libraries
+```{r, warning=FALSE, message=FALSE}
+library(magrittr)
+library(readr)
+library(dplyr)
+library(tidyr)
+library(tibble)
+library(vip)
+library(tidyverse)
+library(tidymodels)
+library(glmnet)
+library(car)
+library(bestglm)
+library(varImp)
+library(pROC)
+```
+
+## Get 5000 most variable genes
+
+This code chunk only needs to be run once to generate the topGenes.RDS file.
+One the RDS object has been generated, skip straight to "Read in data".
+```{r}
+deseq <- readRDS("deseq.RDS")
+deseq_df <- readRDS("deseq_df.RDS")
+collapsed_mapping_df <- readRDS("collapsed_mapping_df.RDS")
+
+deseq_df <- deseq_df %>%
+  inner_join(collapsed_mapping_df, by = c("Gene" = "ensembl_gene_id"))
+mat <- counts(deseq, normalized = T)[deseq_df$Gene,]
+
+topGenesMat <- head(order(rowVars(mat), decreasing = TRUE), 5000)
+topGenes <- mat[topGenesMat,]
+
+topGenesMat <- head(order(rowVars(mat), decreasing = TRUE), 10000)
+topGenes10k <- mat[topGenesMat,]
+
+saveRDS(topGenes, "topGenes.RDS")
+saveRDS(topGenes10k, "topGenes10k.RDS")
+```
+
+## Read in data
+```{r}
+topGenes <- readRDS("topGenes.RDS")
+topGenes10k <- readRDS("topGenes10k.RDS")
+
+topGenes <- t(topGenes)
+topGenes10k <- t(topGenes10k)
+
+topGenes_df <- as.data.frame(topGenes)
+topGenes10k_df <- as.data.frame(topGenes10k)
+
+metadata <- read_tsv("SRP119064/metadata_SRP119064.tsv")
+```
+
+
+# Logistic Regression
+```{r}
+
+# 5000 genes
+set.seed(123)
+gene_data <- topGenes_df
+gene_data$section <- as.factor(metadata$refinebio_specimen_part)
+
+# Training / Validation Sets
+splits <- initial_split(gene_data, strata = section)
+top5000Genes_training <- training(splits)
+top5000Genes_testing <- testing(splits)
+
+# Train model
+lrm_5000 <- glm(section ~ ., data = top5000Genes_training, family = "binomial")
+summary(model)
+
+# Assess accuracy
+probs_5000 <- predict(lrm_5000, newdata = top5000Genes_testing, type = "response")
+predicts_5000 <- ifelse(probs_5000 >0.5, 'hippocampus', 'cortex')
+table(top5000Genes_testing$section, predicts_5000)
+missing_classerr_5000 <- mean(predicts_5000 != top5000Genes_testing$section)
+print(paste('Accuracy with 5000 genes =', 1 - missing_classerr_5000))
+
+# Extract gene signature
+coefficients <- coef(lrm_5000)
+filtered_coefficients <- coefficients[!is.na(coefficients)]
+selected_genes_5000 <- names(filtered_coefficients)
+
+# Calculate AUC
+true_labels <- ifelse(top5000Genes_testing$section == "cortex", 0, 1)
+names(true_labels) <- rownames(top5000Genes_testing)
+
+roc_obj <- roc(top5000Genes_testing$section, probs_5000)
+auc_value_5000 <- auc(roc_obj)
+
+print(paste('AUC with 5000 genes =', auc_value_5000))
+
+
+
+# 10 genes
+set.seed(123)
+top10Genes_df <- as.data.frame(gene_data[,1:10])
+top10Genes_df$section <- as.factor(metadata$refinebio_specimen_part)
+
+# Training / Validation Sets
+splits <- initial_split(top10Genes_df, strata = section)
+top10Genes_training <- training(splits)
+top10Genes_testing <- testing(splits)
+
+# Train model
+lrm_10 <- glm(section ~ ., data = top10Genes_training, family = "binomial")
+summary(lrm_10)
+
+# Assess accuracy
+probs_10 <- predict(lrm_10, newdata = top10Genes_testing, type = "response")
+predicts_10 <- ifelse(probs_10 >0.5, 'hippocampus', 'cortex')
+table(top10Genes_testing$section, predicts_10)
+missing_classerr_10 <- mean(predicts_10 != top10Genes_testing$section)
+print(paste('Accuracy with 10 genes =', 1 - missing_classerr_10))
+
+# Calculate AUC
+true_labels <- ifelse(top10Genes_testing$section == "cortex", 0, 1)
+names(true_labels) <- rownames(top10Genes_testing)
+
+roc_obj <- roc(top10Genes_testing$section, probs_10)
+auc_value_10 <- auc(roc_obj)
+
+print(paste('AUC with 10 genes =', auc_value_10))
+
+
+
+# 100 genes
+set.seed(123)
+top100Genes_df <- as.data.frame(gene_data[,1:100])
+top100Genes_df$section <- as.factor(metadata$refinebio_specimen_part)
+
+# Training / Validation Sets
+splits <- initial_split(top100Genes_df, strata = section)
+top100Genes_training <- training(splits)
+top100Genes_testing <- testing(splits)
+
+# Train model
+lrm_100 <- glm(section ~ ., data = top100Genes_training, family = "binomial")
+summary(lrm_100)
+
+# Assess accuracy
+probs_100 <- predict(lrm_100, newdata = top100Genes_testing, type = "response")
+predicts_100 <- ifelse(probs_100 >0.5, 'hippocampus', 'cortex')
+table(top100Genes_testing$section, predicts_100)
+missing_classerr_100 <- mean(predicts_100 != top100Genes_testing$section)
+print(paste('Accuracy with 100 genes =', 1 - missing_classerr_100))
+
+# Calculate AUC
+true_labels <- ifelse(top100Genes_testing$section == "cortex", 0, 1)
+names(true_labels) <- rownames(top100Genes_testing)
+
+roc_obj <- roc(top100Genes_testing$section, probs_100)
+auc_value_100 <- auc(roc_obj)
+
+print(paste('AUC with 100 genes =', auc_value_100))
+
+
+
+# 1000 genes
+set.seed(123)
+top1000Genes_df <- as.data.frame(gene_data[,1:1000])
+top1000Genes_df$section <- as.factor(metadata$refinebio_specimen_part)
+
+# Training / Validation Sets
+splits <- initial_split(top1000Genes_df, strata = section)
+top1000Genes_training <- training(splits)
+top1000Genes_testing <- testing(splits)
+
+# Train model
+lrm_1000 <- glm(section ~ ., data = top1000Genes_training, family = "binomial")
+summary(lrm_1000)
+
+# Assess accuracy
+probs_1000 <- predict(lrm_1000, newdata = top1000Genes_testing, type = "response")
+predicts_1000 <- ifelse(probs_1000 >0.5, 'hippocampus', 'cortex')
+table(top1000Genes_testing$section, predicts_1000)
+missing_classerr_1000 <- mean(predicts_1000 != top1000Genes_testing$section)
+print(paste('Accuracy with 1000 genes =', 1 - missing_classerr_1000))
+
+# Calculate AUC
+true_labels <- ifelse(top1000Genes_testing$section == "cortex", 0, 1)
+names(true_labels) <- rownames(top1000Genes_testing)
+
+roc_obj <- roc(top1000Genes_testing$section, probs_1000)
+auc_value_1000 <- auc(roc_obj)
+
+print(paste('AUC with 1000 genes =', auc_value_1000))
+
+
+
+# 10k genes
+set.seed(123)
+top10kgenes_section <- topGenes10k_df
+top10kgenes_section$section <- as.factor(metadata$refinebio_specimen_part)
+
+# Training / Validation Sets
+splits <- initial_split(top10kgenes_section, strata = section)
+top10kGenes_training <- training(splits)
+top10kGenes_testing <- testing(splits)
+
+# Train model
+lrm_10k <- glm(section ~ ., data = top10kGenes_training, family = "binomial")
+summary(lrm_10k)
+
+# Assess accuracy
+probs_10k <- predict(lrm_10k, newdata = top10kGenes_testing, type = "response")
+predicts_10k <- ifelse(probs_10k >0.5, 'hippocampus', 'cortex')
+table(top10kGenes_testing$section, predicts_10k)
+missing_classerr_10k <- mean(predicts_10k != top10kGenes_testing$section)
+print(paste('Accuracy with 10k genes =', 1 - missing_classerr_10k))
+
+# Calculate AUC
+true_labels <- ifelse(top10kGenes_testing$section == "cortex", 0, 1)
+names(true_labels) <- rownames(top10kGenes_testing)
+
+roc_obj <- roc(top10kGenes_testing$section, probs_10k)
+auc_value_10k <- auc(roc_obj)
+
+print(paste('AUC with 10k genes =', auc_value_10k))
+```
+
+
+
+```{r}
+# 10 genes
+set.seed(123)
+top10Genes_df <- as.data.frame(gene_data[,1:10])
+top10Genes_df$section <- as.factor(metadata$refinebio_specimen_part)
+
+# Training / Validation Sets
+splits <- initial_split(top10Genes_df, strata = section)
+top10Genes_training <- training(splits)
+top10Genes_testing <- testing(splits)
+
+# Train model
+lrm_10 <- glm(section ~ ., data = top10Genes_training, family = "binomial")
+summary(lrm_10)
+
+# Assess accuracy
+probs_10 <- predict(lrm_10, newdata = top10Genes_testing, type = "response")
+predicts_10 <- ifelse(probs_10 >0.5, 'hippocampus', 'cortex')
+table(top10Genes_testing$section, predicts_10)
+missing_classerr_10 <- mean(predicts_10 != top10Genes_testing$section)
+print(paste('Accuracy with 10 genes =', 1 - missing_classerr_10))
+
+# Calculate AUC
+true_labels <- ifelse(top10Genes_testing$section == "cortex", 0, 1)
+names(true_labels) <- rownames(top10Genes_testing)
+
+roc_obj <- roc(top10Genes_testing$section, probs_10)
+auc_value_10 <- auc(roc_obj)
+
+print(paste('AUC with 10 genes =', auc_value_10))
+
+
+
+# 100 genes
+set.seed(123)
+top100Genes_df <- as.data.frame(gene_data[,1:100])
+top100Genes_df$section <- as.factor(metadata$refinebio_specimen_part)
+
+# Training / Validation Sets
+splits <- initial_split(top100Genes_df, strata = section)
+top100Genes_training <- training(splits)
+top100Genes_testing <- testing(splits)
+
+# Train model
+lrm_100 <- glm(section ~ ., data = top100Genes_training, family = "binomial")
+summary(lrm_100)
+
+# Assess accuracy
+probs_100 <- predict(lrm_100, newdata = top100Genes_testing, type = "response")
+predicts_100 <- ifelse(probs_100 >0.5, 'hippocampus', 'cortex')
+table(top100Genes_testing$section, predicts_100)
+missing_classerr_100 <- mean(predicts_100 != top100Genes_testing$section)
+print(paste('Accuracy with 100 genes =', 1 - missing_classerr_100))
+
+# Calculate AUC
+true_labels <- ifelse(top100Genes_testing$section == "cortex", 0, 1)
+names(true_labels) <- rownames(top100Genes_testing)
+
+roc_obj <- roc(top100Genes_testing$section, probs_100)
+auc_value_100 <- auc(roc_obj)
+
+print(paste('AUC with 100 genes =', auc_value_100))
+
+
+
+# 1000 genes
+set.seed(123)
+top1000Genes_df <- as.data.frame(gene_data[,1:1000])
+top1000Genes_df$section <- as.factor(metadata$refinebio_specimen_part)
+
+# Training / Validation Sets
+splits <- initial_split(top1000Genes_df, strata = section)
+top1000Genes_training <- training(splits)
+top1000Genes_testing <- testing(splits)
+
+# Train model
+lrm_1000 <- glm(section ~ ., data = top1000Genes_training, family = "binomial")
+summary(lrm_1000)
+
+# Assess accuracy
+probs_1000 <- predict(lrm_1000, newdata = top1000Genes_testing, type = "response")
+predicts <- ifelse(probs_1000 >0.5, 'hippocampus', 'cortex')
+table(top1000Genes_testing$section, predicts)
+missing_classerr_1000 <- mean(predicts != top1000Genes_testing$section)
+print(paste('Accuracy with 1000 genes =', 1 - missing_classerr_1000))
+
+# Calculate AUC
+true_labels <- ifelse(top1000Genes_testing$section == "cortex", 0, 1)
+names(true_labels) <- rownames(top1000Genes_testing)
+
+roc_obj <- roc(top1000Genes_testing$section, probs_1000)
+auc_value_1000 <- auc(roc_obj)
+
+print(paste('AUC with 1000 genes =', auc_value_1000))
+```
+
+
+
+
+
+
+
+fitted_logistic_model<- logistic_reg() %>%
+        # Set the engine
+        set_engine("glm") %>%
+        # Set the mode
+        set_mode("classification") %>%
+        # Fit the model
+        fit(section~., data = topGenes_training)
+tidy(fitted_logistic_model)  
+
+pred_class <- predict(fitted_logistic_model,
+                      new_data = topGenes_testing,
+                      type = "class")
+pred_proba <- predict(fitted_logistic_model,
+                      new_data = topGenes_testing,
+                      type = "prob")
+topgenes_results <- topGenes_testing %>%
+  select(section) %>%
+  bind_cols(pred_class, pred_proba)
+accuracy(topgenes_results, truth = section,
+         estimate = .pred_class)
+
+
+
+
+
+
+
+# using tidymodels
+```{r}
+# get brain part
+brainPart <- metadata %>%
+  select('refinebio_accession_code', 'refinebio_specimen_part')
+topGenes_wBrainPart <- topGenes_df %>%
+  rownames_to_column('refinebio_accession_code') %>%
+  inner_join(brainPart, by = c('refinebio_accession_code' = 'refinebio_accession_code')) %>%
+  column_to_rownames('refinebio_accession_code')
+topGenes_wBrainPart$refinebio_specimen_part = as.factor(topGenes_wBrainPart$refinebio_specimen_part)
+
+# Split data into training and testing and validation
+set.seed(123)
+splits <- initial_split(topGenes_wBrainPart, strata = refinebio_specimen_part)
+#splits <- initial_validation_split(topGenes_wBrainPart, prop = c(0.6, 0.2),  strata = refinebio_specimen_part)
+
+topGenes_training <- training(splits)
+topGenes_testing <- testing(splits)
+#topGenes_validation <- validation(splits)
+#val_set <- validation_set(splits)
+#set.seed(234)
+#val_set <- validation_split(topGenes_training, strata = refinebio_specimen_part, prop = 0.80)
+#val_set
+
+# training set proportions by specimen part
+topGenes_training %>% 
+  count(refinebio_specimen_part) %>% 
+  mutate(prop = n/sum(n))
+
+# testing set proportions by specimen part
+topGenes_testing %>% 
+  count(refinebio_specimen_part) %>% 
+  mutate(prop = n/sum(n))
+
+fitted_logistic_model<- logistic_reg() %>%
+        # Set the engine
+        set_engine("glm") %>%
+        # Set the mode
+        set_mode("classification") %>%
+        # Fit the model
+        fit(refinebio_specimen_part~., data = topGenes_training)
+tidy(fitted_logistic_model) 
+```
+```{r}
+tidy(fitted_logistic_model, exponentiate = TRUE) %>%
+  filter(p.value < 0.05)
+```
+```{r}
+fitted_logistic_model<- logistic_reg(penalty = 0.002807216, mixture = 1) %>%
+        # Set the engine
+        set_engine("glmnet") %>%
+        # Set the mode
+        set_mode("classification") %>%
+        # Fit the model
+        fit(refinebio_specimen_part~., data = topGenes_training)
+tidy(fitted_logistic_model) 
+```
+
+```{r}
+pred_class <- predict(fitted_logistic_model,
+                      new_data = topGenes_testing,
+                      type = "class")
+pred_class[1:5,]
+pred_proba <- predict(fitted_logistic_model,
+                      new_data = topGenes_testing,
+                      type = "prob")
+pred_proba[1:5,]
+topGenes_results <- topGenes_testing %>%
+  select(refinebio_specimen_part) %>%
+  bind_cols(pred_class, pred_proba)
+topGenes_results[1:5, ]
+conf_mat(topGenes_results, truth = refinebio_specimen_part,
+         estimate = .pred_class)
+accuracy(topGenes_results, truth = refinebio_specimen_part,
+         estimate = .pred_class)
+```
+
+
+```{r}
+
+set.seed(234)
+val_set <- validation_split(topGenes_training, 
+                            strata = refinebio_specimen_part, 
+                            prop = 0.80)
+val_set
+
+# Build model
+lr_mod <- logistic_reg(penalty = tune(), mixture = 1) %>%
+        # Set the engine
+        set_engine("glmnet")
+```
+```{r}
+# Create the recipe
+lr_recipe <- 
+  recipe(refinebio_specimen_part ~ ., data = topGenes_testing) %>% 
+  step_normalize(all_predictors())
+
+# Create the workflow
+lr_workflow <- 
+  workflow() %>% 
+  add_model(lr_mod) %>% 
+  add_recipe(lr_recipe)
+```
+```{r}
+# Create grid for tuning
+lr_reg_grid <- tibble(penalty = 10^seq(-4, -1, length.out = 30))
+
+lr_reg_grid %>% top_n(-5) # lowest penalty values
+
+lr_reg_grid %>% top_n(5) # highest penalty values
+
+lr_res <- 
+  lr_workflow %>% 
+  tune_grid(val_set,
+            grid = lr_reg_grid,
+            control = control_grid(save_pred = TRUE),
+            metrics = metric_set(roc_auc))
+
+lr_plot <- 
+  lr_res %>% 
+  collect_metrics() %>% 
+  ggplot(aes(x = penalty, y = mean)) + 
+  geom_point() + 
+  geom_line() + 
+  ylab("Area under the ROC Curve") +
+  scale_x_log10(labels = scales::label_number())
+
+lr_plot 
+```
+
+```{r}
+top_models <-
+  lr_res %>% 
+  show_best("roc_auc", n = 15) %>% 
+  arrange(penalty) 
+
+lr_best <- 
+  lr_res %>% 
+  collect_metrics() %>% 
+  arrange(penalty) %>% 
+  slice(15)
+lr_best
+
+lr_auc <- 
+  lr_res %>% 
+  collect_predictions(parameters = lr_best) %>% 
+  roc_curve(refinebio_specimen_part, .pred_refinebio_specimen_part) %>% 
+  mutate(model = "Logistic Regression")
+
+autoplot(lr_auc)
+```
+
+
+
+splits <- initial_split(topGenes_wBrainPart, strata = refinebio_specimen_part)
+
+topGenes_other <- training(splits)
+topGenes_test <- testing(splits)
+
+# training set proportions by specimen part
+topGenes_other %>% 
+  count(refinebio_specimen_part) %>% 
+  mutate(prop = n/sum(n))
+
+# test set proportions by specimen part
+topGenes_test  %>% 
+  count(refinebio_specimen_part) %>% 
+  mutate(prop = n/sum(n))
+
+# Split topGenes_other into validation set and training set
+set.seed(234)
+val_set <- validation_split(topGenes_other, 
+                            strata = refinebio_specimen_part, 
+                            prop = 0.80)
+val_set
+```
+
+```{r}
+Notes:
+# get knockout status
+knockout <- metadata %>%
+  # Get trem2knockout status
+  dplyr::mutate(knockout_status = dplyr::case_when(
+    stringr::str_detect(refinebio_subject, "wt") ~ "wt",
+    stringr::str_detect(refinebio_subject, "trem2ko") ~ "trem2ko"
+  )) %>%
+  select('refinebio_accession_code', 'knockout_status')
+
+# add knockout status to topGenes
+topGenes_wKnockout <- topGenes_df %>%
+  rownames_to_column('refinebio_accession_code') %>%
+  inner_join(knockout_status, by = c('refinebio_accession_code' = 'refinebio_accession_code')) %>%
+  column_to_rownames('refinebio_accession_code')
+
+topGenes_wKnockout %>%
+  count(knockout_status) %>%
+  mutate(prop = n/sum(n))
+```
