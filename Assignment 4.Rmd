@@ -45,29 +45,90 @@ topGenes_df <- as.data.frame(topGenes)
 topGenes10k_df <- as.data.frame(topGenes10k)
 
 metadata <- read_tsv("SRP119064/metadata_SRP119064.tsv")
+
+topGenes_df$brain_part <- metadata$refinebio_specimen_part
+topGenes_df <- as.data.frame(topGenes_df)
+topGenes_df$brain_part <- as.factor(topGenes_df$brain_part)
+
+topGenes10k_df$brain_part <- metadata$refinebio_specimen_part
+topGenes10k_df <- as.data.frame(topGenes10k_df)
+topGenes10k_df$brain_part <- as.factor(topGenes10k_df$brain_part)
 ```
 
 ## Support vector machine - Em
 ```{r}
+# Load necessary resources for SVM using mlr3
+library(e1071)
+library(mlr3verse)
+mlr_learners$get("classif.svm")
+mlr_measures$get("classif.auc")
+mlr_measures$get("classif.acc")
 
+# Function for less code repetition
+svm_modeling <- function(geneset) {
+  geneset$brain_part <- as.factor(geneset$brain_part)
+  
+  # Create the task, learner, and resampler
+  svm_task <- as_task_classif(brain_part ~ ., data = geneset)
+  svm_learner <- lrn("classif.svm", kernel = "linear", predict_type = "prob")
+  
+  # Resample such that 80% is training, 20% is testing
+  svm_resample <- rsmp("cv", folds = 5)
+  
+  # Ensure reproducibility
+  set.seed(999)
+  
+  # Train the model 
+  svm_resample$instantiate(svm_task)
+  
+  # Get accuracy measures
+  svm_rr <- resample(svm_task, svm_learner, svm_resample)
+
+  return(svm_rr)
+}
+
+rr <- svm_modeling(topGenes_df)
+rr$score(msr("classif.acc"))
+rr$score(msr("classif.auc"))
+
+# Use last 10 genes
+genes <- as.data.frame(topGenes_df[,4991:5000])
+genes$brain_part <- topGenes_df$brain_part
+rr <- svm_modeling(genes)
+rr$score(msr("classif.acc"))
+rr$score(msr("classif.auc"))
+
+# Use last 100 genes
+genes <- as.data.frame(topGenes_df[,4901:5000])
+genes$brain_part <- topGenes_df$brain_part
+rr <- svm_modeling(genes)
+rr$score(msr("classif.acc"))
+rr$score(msr("classif.auc"))
+
+# Use last 1000 genes
+genes <- as.data.frame(topGenes_df[,4001:5000])
+genes$brain_part <- topGenes_df$brain_part
+rr <- svm_modeling(genes)
+rr$score(msr("classif.acc"))
+rr$score(msr("classif.auc"))
+
+# Use 10k genes
+rr <- svm_modeling(topGenes10k_df)
+rr$score(msr("classif.acc"))
+rr$score(msr("classif.auc"))
 ```
 
-## Logistic regression - Annie
+## Logistic regression
 ```{r}
 
 ```
 
-## Random forest - Alex
+## K nearest neighbors
 ```{r}
 
 ```
 
-## K nearest neighbors - Jonathan
-```{r}
-
-```
-
-## Naive Bayes - Milan
+## Naive Bayes
 ```{r}
 library(e1071)
 library(tidyverse)
