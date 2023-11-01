@@ -287,7 +287,33 @@ print(paste('AUC with 10k genes =', auc_value_10k))
 
 ## K nearest neighbors
 ```{r}
+library(class)
 
+gene_data <- topGenes_df
+#gene_data <- gene_data[,1:10]
+#gene_data <- gene_data[,1:100]
+#gene_data <- gene_data[,1:1000]
+#gene_data <- topGenes10k_df
+class_labels <- metadata$refinebio_specimen_part
+
+library(caret)
+set.seed(123)  # for reproducibility
+splitIndex <- createDataPartition(class_labels, p = 0.7, list = FALSE)
+train_data <- gene_data[splitIndex, ]
+test_data <- gene_data[-splitIndex, ]
+train_labels <- class_labels[splitIndex]
+test_labels <- class_labels[-splitIndex]
+
+train_data <- scale(train_data)
+test_data <- scale(test_data)
+
+k <- 2
+knn_model <- knn(train_data, test_data, train_labels, k = k)
+
+test_labels <- factor(test_labels, levels = levels(knn_model))
+
+confusion_matrix <- confusionMatrix(knn_model, test_labels)
+print(confusion_matrix)
 ```
 
 ## Naive Bayes
