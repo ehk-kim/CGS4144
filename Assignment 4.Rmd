@@ -370,15 +370,16 @@ annot_df <- as.data.frame(cbind(metadata$refinebio_specimen_part,
                                 hc.cut,
                                 pam_res_2$clustering))
 
-colnames(annot_df) <- c("Brain_part", "Kmean_cluster", "Hier_cluster", "PAM_cluster")
+colnames(annot_df) <- c("Brain_part", "Kmean_cluster", "Hier_cluster", "PAM_cluster", "___")
 
 # Colors were taken from https://davidmathlogic.com/colorblind/
 sample_annot <- HeatmapAnnotation(df = annot_df,
                                   col = list(Brain_part = c("cortex" = "#E1BE6A", "hippocampus" = "#40B0A6"),
-                                             Kmean_cluster = c("1" = "#1A85FF", "2" = "#D41159"),
-                                             Hier_cluster = c("1" = "#005AB5", "2" = "#DC3220"),
-                                             PAM_cluster = c("1" = "#5D3A9B", "2" = "#E66100")),
-                                  annotation_label = c("Brain part", "K-mean cluster", "Hierarchical cluster", "PAM cluster"))
+                                             Support_vector_machine = c("1" = "#1A85FF", "2" = "#D41159"),
+                                             Logistic_regression = c("1" = "#005AB5", "2" = "#DC3220"),
+                                             K_nearest_neighbors = c("1" = "#5D3A9B", "2" = "#E66100")),
+                                             naive_bayes = c("1" = "#f22e9d", "2" = "#93f22e"))
+                                  annotation_label = c("Brain part", "Support vector machine", "Logistic regression", "K nearest neighbors", "Naïve Bayes")
 
 heatmap <- Heatmap(topGenes_hm,
                    name = "Log-normalized counts",
