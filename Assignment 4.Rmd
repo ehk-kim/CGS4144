@@ -316,43 +316,150 @@ confusion_matrix <- confusionMatrix(knn_model, test_labels)
 print(confusion_matrix)
 ```
 
-## Naive Bayes
+## Naive Bayes - Milan
 ```{r}
 library(e1071)
 library(tidyverse)
-gene_data <- topGenes_df
-gene_data$section <- metadata$refinebio_specimen_part
+#gene_data <- topGenes_df
+#gene_data$section <- metadata$refinebio_specimen_part
 ```
+
+```{r}
+top10Genes_df <- as.data.frame(topGenes_df[,1:10])
+top10Genes_df$brain_part <- metadata$refinebio_specimen_part
+top10Genes_df
+```
+
 
 ```{r}
 set.seed(155) 
-train_indices <- sample(1:nrow(gene_data), 0.01*nrow(gene_data))  #1% of the data is training and 99% is testing
-train_genes <- gene_data[train_indices, ]
-test_genes <- gene_data[-train_indices, ]
+train_indices <- sample(1:nrow(top10Genes_df), 0.2*nrow(top10Genes_df))  #20% of the data is training and 80% is testing
+train_genes <- top10Genes_df[train_indices, ]
+test_genes <- top10Genes_df[-train_indices, ]
 ```
 
 ```{r}
-model <- naiveBayes(section ~ ., data = train_genes)
+model <- naiveBayes(brain_part ~ ., data = top10Genes_df)
 ```
 
 ```{r}
-number <- ncol(test_genes)
-column_name <- test_genes[number]
-test_genes_filtered_df <- test_genes[-number]
+number <- ncol(top10Genes_df)
+column_name <- top10Genes_df[number]
+test_genes_filtered_df <- top10Genes_df[-number]
 predictions <- predict(model, newdata = test_genes_filtered_df)
 print(predictions)  # (generated from testing data)
 ```
 
 ```{r}
-test_genes$section[test_genes$section == "cortex"] <- "Cortex_test"
-test_genes$section[test_genes$section == "hippocampus"] <- "Hippocampus_test"
+top10Genes_df$brain_part[top10Genes_df$brain_part == "cortex"] <- "Cortex_test"
+top10Genes_df$brain_part[top10Genes_df$brain_part == "hippocampus"] <- "Hippocampus_test"
 
-error_matrix = table(test_genes$section, predictions)
+error_matrix = table(top10Genes_df$brain_part, predictions)
 error_matrix
 
 accuracy <- sum(diag(error_matrix)) / sum(error_matrix)
 print(paste("Model Accuracy:", round(accuracy, 2)))
 ```
+
+```{r}
+top100Genes_df <- as.data.frame(topGenes_df[,1:100])
+top100Genes_df$brain_part <- metadata$refinebio_specimen_part
+top100Genes_df
+```
+
+```{r}
+set.seed(155) 
+train_indices <- sample(1:nrow(top100Genes_df), 0.2*nrow(top100Genes_df))  #20% of the data is training and 80% is testing
+train_genes <- top100Genes_df[train_indices, ]
+test_genes <- top100Genes_df[-train_indices, ]
+```
+
+```{r}
+model <- naiveBayes(brain_part ~ ., data = top100Genes_df)
+```
+
+```{r}
+number <- ncol(top100Genes_df)
+column_name <- top100Genes_df[number]
+test_genes_filtered_df <- top100Genes_df[-number]
+predictions <- predict(model, newdata = test_genes_filtered_df)
+print(predictions)  # (generated from testing data)
+```
+```{r}
+top100Genes_df$brain_part[top100Genes_df$brain_part == "cortex"] <- "Cortex_test"
+top100Genes_df$brain_part[top100Genes_df$brain_part == "hippocampus"] <- "Hippocampus_test"
+
+error_matrix = table(top100Genes_df$brain_part, predictions)
+error_matrix
+
+accuracy <- sum(diag(error_matrix)) / sum(error_matrix)
+print(paste("Model Accuracy:", round(accuracy, 2)))
+```
+```{r}
+top1000Genes_df <- as.data.frame(topGenes_df[,1:1000])
+top1000Genes_df$brain_part <- metadata$refinebio_specimen_part
+top1000Genes_df
+```
+
+```{r}
+set.seed(155) 
+train_indices <- sample(1:nrow(top1000Genes_df), 0.2*nrow(top1000Genes_df))  #20% of the data is training and 80% is testing
+train_genes <- top1000Genes_df[train_indices, ]
+test_genes <- top1000Genes_df[-train_indices, ]
+```
+
+```{r}
+model <- naiveBayes(brain_part ~ ., data = top1000Genes_df)
+```
+
+```{r}
+number <- ncol(top1000Genes_df)
+column_name <- top1000Genes_df[number]
+test_genes_filtered_df <- top1000Genes_df[-number]
+predictions <- predict(model, newdata = test_genes_filtered_df)
+print(predictions)  # (generated from testing data)
+```
+```{r}
+top1000Genes_df$brain_part[top1000Genes_df$brain_part == "cortex"] <- "Cortex_test"
+top1000Genes_df$brain_part[top1000Genes_df$brain_part == "hippocampus"] <- "Hippocampus_test"
+
+error_matrix = table(top1000Genes_df$brain_part, predictions)
+error_matrix
+
+accuracy <- sum(diag(error_matrix)) / sum(error_matrix)
+print(paste("Model Accuracy:", round(accuracy, 2)))
+```
+```{r}
+topGenes10k_df
+topGenes10k_df$brain_part <- metadata$refinebio_specimen_part
+```
+```{r}
+set.seed(155) 
+train_indices <- sample(1:nrow(topGenes10k_df), 0.2*nrow(topGenes10k_df))  #20% of the data is training and 80% is testing
+train_genes <- topGenes10k_df[train_indices, ]
+test_genes <- topGenes10k_df[-train_indices, ]
+```
+
+```{r}
+model <- naiveBayes(brain_part ~ ., data = topGenes10k_df)
+```
+
+```{r}
+number <- ncol(topGenes10k_df)
+column_name <- topGenes10k_df[number]
+test_genes_filtered_df <- topGenes10k_df[-number]
+predictions <- predict(model, newdata = test_genes_filtered_df)
+print(predictions)  # (generated from testing data)
+```
+```{r}
+topGenes10k_df$brain_part[topGenes10k_df$brain_part == "cortex"] <- "Cortex_test"
+topGenes10k_df$brain_part[topGenes10k_df$brain_part == "hippocampus"] <- "Hippocampus_test"
+
+error_matrix = table(topGenes10k_df$brain_part, predictions)
+error_matrix
+
+accuracy <- sum(diag(error_matrix)) / sum(error_matrix)
+print(paste("Model Accuracy:", round(accuracy, 2)))
 
 ## Heatmap
 ```{r}
