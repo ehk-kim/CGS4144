@@ -1,0 +1,366 @@
+# Assignment 3
+
+## Load all libraries
+```{r, warning=FALSE, message=FALSE}
+library(magrittr)
+library(readr)
+library(dplyr)
+library(tidyr)
+library(ComplexHeatmap)
+library(factoextra)
+```
+
+## Get 5000 most variable genes
+
+This code chunk only needs to be run once to generate the topGenes.RDS file.
+One the RDS object has been generated, skip straight to "Read in data".
+```{r}
+deseq <- readRDS("deseq.RDS")
+deseq_df <- readRDS("deseq_df.RDS")
+collapsed_mapping_df <- readRDS("collapsed_mapping_df.RDS")
+
+deseq_df <- deseq_df %>%
+  inner_join(collapsed_mapping_df, by = c("Gene" = "ensembl_gene_id"))
+mat <- counts(deseq, normalized = T)[deseq_df$Gene,]
+
+topGenesMat <- head(order(rowVars(mat), decreasing = TRUE), 5000)
+topGenes <- mat[topGenesMat,]
+
+topGenesMat <- head(order(rowVars(mat), decreasing = TRUE), 10000)
+topGenes10k <- mat[topGenesMat,]
+
+saveRDS(topGenes, "topGenes.RDS")
+saveRDS(topGenes10k, "topGenes10k.RDS")
+```
+
+## Read in data
+```{r, message=FALSE}
+topGenes <- readRDS("topGenes.RDS")
+topGenes10k <- readRDS("topGenes10k.RDS")
+
+topGenes <- t(topGenes)
+topGenes10k <- t(topGenes10k)
+
+topGenes_df <- as.data.frame(topGenes)
+topGenes10k_df <- as.data.frame(topGenes10k)
+
+metadata <- read_tsv("SRP119064/metadata_SRP119064.tsv")
+
+topGenes_df$brain_part <- metadata$refinebio_specimen_part
+topGenes_df <- as.data.frame(topGenes_df)
+topGenes_df$brain_part <- as.factor(topGenes_df$brain_part)
+
+topGenes10k_df$brain_part <- metadata$refinebio_specimen_part
+topGenes10k_df <- as.data.frame(topGenes10k_df)
+topGenes10k_df$brain_part <- as.factor(topGenes10k_df$brain_part)
+```
+
+## Support vector machine - Em
+```{r}
+# Load necessary resources for SVM using mlr3
+library(e1071)
+library(mlr3verse)
+mlr_learners$get("classif.svm")
+mlr_measures$get("classif.auc")
+mlr_measures$get("classif.acc")
+
+# Function for less code repetition
+svm_modeling <- function(geneset) {
+  geneset$brain_part <- as.factor(geneset$brain_part)
+  
+  # Create the task, learner, and resampler
+  svm_task <- as_task_classif(brain_part ~ ., data = geneset)
+  svm_learner <- lrn("classif.svm", kernel = "linear", predict_type = "prob")
+  
+  # Resample such that 80% is training, 20% is testing
+  svm_resample <- rsmp("cv", folds = 5)
+  
+  # Ensure reproducibility
+  set.seed(999)
+  
+  # Train the model 
+  svm_resample$instantiate(svm_task)
+  
+  # Get accuracy measures
+  svm_rr <- resample(svm_task, svm_learner, svm_resample)
+
+  return(svm_rr)
+}
+
+rr <- svm_modeling(topGenes_df)
+rr$score(msr("classif.acc"))
+rr$score(msr("classif.auc"))
+
+# Use last 10 genes
+genes <- as.data.frame(topGenes_df[,4991:5000])
+genes$brain_part <- topGenes_df$brain_part
+rr <- svm_modeling(genes)
+rr$score(msr("classif.acc"))
+rr$score(msr("classif.auc"))
+
+# Use last 100 genes
+genes <- as.data.frame(topGenes_df[,4901:5000])
+genes$brain_part <- topGenes_df$brain_part
+rr <- svm_modeling(genes)
+rr$score(msr("classif.acc"))
+rr$score(msr("classif.auc"))
+
+# Use last 1000 genes
+genes <- as.data.frame(topGenes_df[,4001:5000])
+genes$brain_part <- topGenes_df$brain_part
+rr <- svm_modeling(genes)
+rr$score(msr("classif.acc"))
+rr$score(msr("classif.auc"))
+
+# Use 10k genes
+rr <- svm_modeling(topGenes10k_df)
+rr$score(msr("classif.acc"))
+rr$score(msr("classif.auc"))
+```
+
+## Logistic regression - Annie
+```{r}
+library(tibble)
+library(pROC)
+library(tidymodels)
+library(mlr3verse)
+
+# 5000 genes
+set.seed(123)
+
+# Training / Validation Sets
+splits <- initial_split(topGenes_df, strata = brain_part)
+top5000Genes_training <- training(splits)
+top5000Genes_testing <- testing(splits)
+
+# Train model
+lrm_5000 <- glm(brain_part ~ ., data = top5000Genes_training, family = "binomial")
+summary(lrm_5000)
+
+# Assess accuracy
+probs_5000 <- predict(lrm_5000, newdata = top5000Genes_testing, type = "response")
+predicts_5000 <- ifelse(probs_5000 >0.5, 'hippocampus', 'cortex')
+table(top5000Genes_testing$brain_part, predicts_5000)
+missing_classerr_5000 <- mean(predicts_5000 != top5000Genes_testing$brain_part)
+print(paste('Accuracy with 5000 genes =', 1 - missing_classerr_5000))
+
+# Extract gene signature
+coefficients <- coef(lrm_5000)
+filtered_coefficients <- coefficients[!is.na(coefficients)]
+selected_genes_5000 <- names(filtered_coefficients)
+
+# Calculate AUC
+true_labels <- ifelse(top5000Genes_testing$brain_part == "cortex", 0, 1)
+names(true_labels) <- rownames(top5000Genes_testing)
+
+roc_obj <- roc(top5000Genes_testing$brain_part, probs_5000)
+auc_value_5000 <- auc(roc_obj)
+
+print(paste('AUC with 5000 genes =', auc_value_5000))
+
+
+
+# 10 genes
+set.seed(123)
+top10Genes_df <- as.data.frame(topGenes_df[,1:10])
+top10Genes_df$brain_part <- as.factor(metadata$refinebio_specimen_part)
+
+# Training / Validation Sets
+splits <- initial_split(top10Genes_df, strata = brain_part)
+top10Genes_training <- training(splits)
+top10Genes_testing <- testing(splits)
+
+# Train model
+lrm_10 <- glm(brain_part ~ ., data = top10Genes_training, family = "binomial")
+summary(lrm_10)
+
+# Assess accuracy
+probs_10 <- predict(lrm_10, newdata = top10Genes_testing, type = "response")
+predicts_10 <- ifelse(probs_10 >0.5, 'hippocampus', 'cortex')
+table(top10Genes_testing$brain_part, predicts_10)
+missing_classerr_10 <- mean(predicts_10 != top10Genes_testing$brain_part)
+print(paste('Accuracy with 10 genes =', 1 - missing_classerr_10))
+
+# Calculate AUC
+true_labels <- ifelse(top10Genes_testing$brain_part == "cortex", 0, 1)
+names(true_labels) <- rownames(top10Genes_testing)
+
+roc_obj <- roc(top10Genes_testing$brain_part, probs_10)
+auc_value_10 <- auc(roc_obj)
+
+print(paste('AUC with 10 genes =', auc_value_10))
+
+
+
+# 100 genes
+set.seed(123)
+top100Genes_df <- as.data.frame(topGenes_df[,1:100])
+top100Genes_df$brain_part <- as.factor(metadata$refinebio_specimen_part)
+
+# Training / Validation Sets
+splits <- initial_split(top100Genes_df, strata = brain_part)
+top100Genes_training <- training(splits)
+top100Genes_testing <- testing(splits)
+
+# Train model
+lrm_100 <- glm(brain_part ~ ., data = top100Genes_training, family = "binomial")
+summary(lrm_100)
+
+# Assess accuracy
+probs_100 <- predict(lrm_100, newdata = top100Genes_testing, type = "response")
+predicts_100 <- ifelse(probs_100 >0.5, 'hippocampus', 'cortex')
+table(top100Genes_testing$brain_part, predicts_100)
+missing_classerr_100 <- mean(predicts_100 != top100Genes_testing$brain_part)
+print(paste('Accuracy with 100 genes =', 1 - missing_classerr_100))
+
+# Calculate AUC
+true_labels <- ifelse(top100Genes_testing$brain_part == "cortex", 0, 1)
+names(true_labels) <- rownames(top100Genes_testing)
+
+roc_obj <- roc(top100Genes_testing$brain_part, probs_100)
+auc_value_100 <- auc(roc_obj)
+
+print(paste('AUC with 100 genes =', auc_value_100))
+
+
+
+# 1000 genes
+set.seed(123)
+top1000Genes_df <- as.data.frame(topGenes_df[,1:1000])
+top1000Genes_df$brain_part <- as.factor(metadata$refinebio_specimen_part)
+
+# Training / Validation Sets
+splits <- initial_split(top1000Genes_df, strata = brain_part)
+top1000Genes_training <- training(splits)
+top1000Genes_testing <- testing(splits)
+
+# Train model
+lrm_1000 <- glm(brain_part ~ ., data = top1000Genes_training, family = "binomial")
+summary(lrm_1000)
+
+# Assess accuracy
+probs_1000 <- predict(lrm_1000, newdata = top1000Genes_testing, type = "response")
+predicts_1000 <- ifelse(probs_1000 >0.5, 'hippocampus', 'cortex')
+table(top1000Genes_testing$brain_part, predicts_1000)
+missing_classerr_1000 <- mean(predicts_1000 != top1000Genes_testing$brain_part)
+print(paste('Accuracy with 1000 genes =', 1 - missing_classerr_1000))
+
+# Calculate AUC
+true_labels <- ifelse(top1000Genes_testing$brain_part == "cortex", 0, 1)
+names(true_labels) <- rownames(top1000Genes_testing)
+
+roc_obj <- roc(top1000Genes_testing$brain_part, probs_1000)
+auc_value_1000 <- auc(roc_obj)
+
+print(paste('AUC with 1000 genes =', auc_value_1000))
+
+
+
+# 10k genes
+set.seed(123)
+
+# Training / Validation Sets
+splits <- initial_split(topGenes10k_df, strata = brain_part)
+top10kGenes_training <- training(splits)
+top10kGenes_testing <- testing(splits)
+
+# Train model
+lrm_10k <- glm(brain_part ~ ., data = top10kGenes_training, family = "binomial")
+summary(lrm_10k)
+
+# Assess accuracy
+probs_10k <- predict(lrm_10k, newdata = top10kGenes_testing, type = "response")
+predicts_10k <- ifelse(probs_10k >0.5, 'hippocampus', 'cortex')
+table(top10kGenes_testing$brain_part, predicts_10k)
+missing_classerr_10k <- mean(predicts_10k != top10kGenes_testing$brain_part)
+print(paste('Accuracy with 10k genes =', 1 - missing_classerr_10k))
+
+# Calculate AUC
+true_labels <- ifelse(top10kGenes_testing$brain_part == "cortex", 0, 1)
+names(true_labels) <- rownames(top10kGenes_testing)
+
+roc_obj <- roc(top10kGenes_testing$brain_part, probs_10k)
+auc_value_10k <- auc(roc_obj)
+
+print(paste('AUC with 10k genes =', auc_value_10k))
+```
+
+## K nearest neighbors
+```{r}
+
+```
+
+## Naive Bayes
+```{r}
+library(e1071)
+library(tidyverse)
+gene_data <- topGenes_df
+gene_data$section <- metadata$refinebio_specimen_part
+```
+
+```{r}
+set.seed(155) 
+train_indices <- sample(1:nrow(gene_data), 0.01*nrow(gene_data))  #1% of the data is training and 99% is testing
+train_genes <- gene_data[train_indices, ]
+test_genes <- gene_data[-train_indices, ]
+```
+
+```{r}
+model <- naiveBayes(section ~ ., data = train_genes)
+```
+
+```{r}
+number <- ncol(test_genes)
+column_name <- test_genes[number]
+test_genes_filtered_df <- test_genes[-number]
+predictions <- predict(model, newdata = test_genes_filtered_df)
+print(predictions)  # (generated from testing data)
+```
+
+```{r}
+test_genes$section[test_genes$section == "cortex"] <- "Cortex_test"
+test_genes$section[test_genes$section == "hippocampus"] <- "Hippocampus_test"
+
+error_matrix = table(test_genes$section, predictions)
+error_matrix
+
+accuracy <- sum(diag(error_matrix)) / sum(error_matrix)
+print(paste("Model Accuracy:", round(accuracy, 2)))
+```
+
+## Heatmap
+```{r}
+# This chunk is from Assignment 3 - edit as needed for Assignment 4
+
+# Prepare expression data
+topGenes_hm <- t(topGenes)
+topGenes_hm <- log2(topGenes_hm)
+topGenes_hm[topGenes_hm == -Inf] <- 0
+
+
+# Prepare annotation data
+annot_df <- as.data.frame(cbind(metadata$refinebio_specimen_part,
+                                km_res_2$cluster,
+                                hc.cut,
+                                pam_res_2$clustering))
+
+colnames(annot_df) <- c("Brain_part", "Kmean_cluster", "Hier_cluster", "PAM_cluster")
+
+# Colors were taken from https://davidmathlogic.com/colorblind/
+sample_annot <- HeatmapAnnotation(df = annot_df,
+                                  col = list(Brain_part = c("cortex" = "#E1BE6A", "hippocampus" = "#40B0A6"),
+                                             Kmean_cluster = c("1" = "#1A85FF", "2" = "#D41159"),
+                                             Hier_cluster = c("1" = "#005AB5", "2" = "#DC3220"),
+                                             PAM_cluster = c("1" = "#5D3A9B", "2" = "#E66100")),
+                                  annotation_label = c("Brain part", "K-mean cluster", "Hierarchical cluster", "PAM cluster"))
+
+heatmap <- Heatmap(topGenes_hm,
+                   name = "Log-normalized counts",
+                   row_title = "Genes",
+                   column_title = "Samples",
+                   show_row_names = FALSE,
+                   show_column_names = FALSE,
+                   top_annotation = sample_annot)
+
+heatmap
+```
